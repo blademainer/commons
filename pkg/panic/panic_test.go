@@ -29,3 +29,9 @@ func badFunc2() {
 	var e error
 	fmt.Println("", e.Error())
 }
+
+func ExampleRecover() {
+	defer Recover()
+	var e error
+	fmt.Println("", e.Error())
+}
