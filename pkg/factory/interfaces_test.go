@@ -6,6 +6,10 @@ import (
 	"testing"
 )
 
+type fakeFactoryMethod interface {
+	ExecuteFunc() string
+}
+
 type fakeExecutor struct {
 }
 
@@ -15,17 +19,15 @@ type fakeConfig struct {
 
 var factory = InitFactory()
 
-func (f *fakeExecutor) ExecuteFunc() func() interface{} {
-	return func() interface{} {
-		return "fake executed"
-	}
+func (f *fakeExecutor) ExecuteFunc() string {
+	return "fake executed"
 }
 
 func init() {
 	factory.RegisterExecutor("fake", instanceFakeExecutor, &fakeConfig{})
 }
 
-func instanceFakeExecutor(config Config, configInstance interface{}) (executor Executor, e error) {
+func instanceFakeExecutor(config Config, configInstance interface{}) (executor interface{}, e error) {
 	executor = &fakeExecutor{}
 	return
 }
@@ -43,7 +45,8 @@ func TestFactory_InstanceExecutor(t *testing.T) {
 	}
 	fmt.Println(executor2)
 	executor := factory.GetExecutor("fake")
-	executeFunc := executor.ExecuteFunc()
-	i := executeFunc()
+	//
+	executeFunc := executor.(fakeFactoryMethod)
+	i := executeFunc.ExecuteFunc()
 	fmt.Println(i)
 }

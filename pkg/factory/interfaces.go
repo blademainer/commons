@@ -9,14 +9,14 @@ import (
 
 type Factory struct {
 	executorMap                      map[string]InstanceExecutorFunc
-	executorTypeAndExecutorMap       map[string]Executor
+	executorTypeAndExecutorMap       map[string]interface{}
 	executorTypeAndConfigInstanceMap map[string]interface{}
 }
 
 func InitFactory() *Factory {
 	factory := &Factory{}
 	factory.executorMap = make(map[string]InstanceExecutorFunc)
-	factory.executorTypeAndExecutorMap = make(map[string]Executor)
+	factory.executorTypeAndExecutorMap = make(map[string]interface{})
 	factory.executorTypeAndConfigInstanceMap = make(map[string]interface{})
 	return factory
 }
@@ -26,12 +26,12 @@ type Config struct {
 	FactoryConfigValue interface{} `json:"config"`
 }
 
-type Executor interface {
-	ExecuteFunc() func() interface{}
-}
+//type Executor interface {
+//	ExecuteFunc() func() interface{}
+//}
 
 // 初始化executor的函数
-type InstanceExecutorFunc func(config Config, configInstance interface{}) (Executor, error)
+type InstanceExecutorFunc func(config Config, configInstance interface{}) (interface{}, error)
 
 // 注册executor类型
 //
@@ -51,15 +51,15 @@ func (f *Factory) RegisterExecutor(executorType string, instanceFunc InstanceExe
 	f.executorTypeAndConfigInstanceMap[executorType] = configInstance
 }
 
-func (f *Factory) GetExecutors() []Executor {
-	executors := make([]Executor, 0)
+func (f *Factory) GetExecutors() []interface{} {
+	executors := make([]interface{}, 0)
 	for _, executor := range f.executorTypeAndExecutorMap {
 		executors = append(executors, executor)
 	}
 	return executors
 }
 
-func (f *Factory) GetExecutor(executorType string) Executor {
+func (f *Factory) GetExecutor(executorType string) interface{} {
 	if executor, exists := f.executorTypeAndExecutorMap[executorType]; !exists {
 		return nil
 	} else {
@@ -67,7 +67,7 @@ func (f *Factory) GetExecutor(executorType string) Executor {
 	}
 }
 
-func (f *Factory) InstanceExecutor(config Config) (executor Executor, err error) {
+func (f *Factory) InstanceExecutor(config Config) (executor interface{}, err error) {
 	executorType := config.Name
 	configInstance, exists := f.executorTypeAndConfigInstanceMap[executorType]
 	if !exists {
