@@ -31,7 +31,7 @@ type Config struct {
 //}
 
 // 初始化executor的函数
-type InstanceExecutorFunc func(config Config, configInstance interface{}) (interface{}, error)
+type InstanceExecutorFunc func(configInstance interface{}) (interface{}, error)
 
 // 注册executor类型
 //
@@ -83,7 +83,7 @@ func (f *Factory) InstanceExecutor(config Config) (executor interface{}, err err
 		}
 	}
 	executorFunc := f.executorMap[executorType]
-	executor, err = executorFunc(config, configInstance)
+	executor, err = executorFunc(configInstance)
 	f.executorTypeAndExecutorMap[executorType] = executor
 	logger.Log.Infof("Init executorType: %v executor: %v error: %v", executorType, executor, err)
 	return

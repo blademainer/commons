@@ -27,7 +27,7 @@ func init() {
 	factory.RegisterExecutor("fake", instanceFakeExecutor, &fakeConfig{})
 }
 
-func instanceFakeExecutor(config Config, configInstance interface{}) (executor interface{}, e error) {
+func instanceFakeExecutor(configInstance interface{}) (executor interface{}, e error) {
 	executor = &fakeExecutor{}
 	return
 }
