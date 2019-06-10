@@ -18,7 +18,7 @@ func TestWalkDir(t *testing.T) {
 		panic(e)
 	}
 
-	if fileChan, e, doneChan := WalkDir("/", time.Duration(10*time.Second), true); e != nil {
+	if fileChan, e, doneChan := WalkDir("./", time.Duration(10*time.Second), false); e != nil {
 		panic(e)
 	} else {
 		for {

@@ -94,7 +94,9 @@ func walk(ctx *walkContext, file *os.File) {
 	for _, infoOfChild := range infos {
 		//path := fmt.Sprintf("%v/%v", currentPath, infoOfChild.Name())
 		path := buildPath(currentPath, infoOfChild.Name())
-		fmt.Println("Read path: ", path)
+		if ctx.debug {
+			fmt.Println("Read path: ", path)
+		}
 		//path := filepath.Join(currentPath, infoOfChild.Name())
 		childFile, e3 := os.Open(path)
 		if e3 != nil {
