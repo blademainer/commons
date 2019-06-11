@@ -16,6 +16,10 @@ func TestProcessor_Process(t *testing.T) {
 	if e != nil {
 		panic(e)
 	}
+	defer func() {
+		os.RemoveAll(sourceDir)
+		os.RemoveAll(targetDir)
+	}()
 	for i := 0; i < 1000; i++ {
 		if e := ioutil.WriteFile(fmt.Sprintf("%v/%v%v", sourceDir, "test", i), []byte("hello"), os.ModePerm); e != nil {
 			panic(e)
@@ -33,14 +37,14 @@ func TestProcessor_Process(t *testing.T) {
 func TestProcessor_processFile(t *testing.T) {
 	sourceDir := "./test_source_dir"
 	targetDir := "./test_target_dir"
-	defer func() {
-		os.RemoveAll(sourceDir)
-		os.RemoveAll(targetDir)
-	}()
 	e := os.MkdirAll(sourceDir, os.ModePerm)
 	if e != nil {
 		panic(e)
 	}
+	defer func() {
+		os.RemoveAll(sourceDir)
+		os.RemoveAll(targetDir)
+	}()
 	fileName := fmt.Sprintf("%v/%v", sourceDir, "test")
 	if e := ioutil.WriteFile(fileName, []byte("hello"), os.ModePerm); e != nil {
 		panic(e)

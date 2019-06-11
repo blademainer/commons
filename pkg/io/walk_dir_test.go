@@ -10,6 +10,9 @@ import (
 
 func TestWalkDir(t *testing.T) {
 	sourceDir := "./test_source_dir"
+	defer func() {
+		os.RemoveAll(sourceDir)
+	}()
 	e := os.MkdirAll(sourceDir, os.ModePerm)
 	if e != nil {
 		panic(e)
@@ -40,6 +43,9 @@ func ExampleWalkDir() {
 	if e != nil {
 		panic(e)
 	}
+	defer func() {
+		os.RemoveAll(sourceDir)
+	}()
 	if e := ioutil.WriteFile(fmt.Sprintf("%v/%v", sourceDir, "test"), []byte("hello"), os.ModePerm); e != nil {
 		panic(e)
 	}
