@@ -2,7 +2,7 @@ package sign
 
 import (
 	"crypto/md5"
-	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"log"
 	"strings"
@@ -18,12 +18,14 @@ func Fingerprint(key []byte) string {
 		log.Fatal("bad key")
 	}
 
-	k, err := base64.StdEncoding.DecodeString(parts[1])
-	if err != nil {
-		log.Fatal(err)
-	}
+	p, _ := pem.Decode(key)
 
-	fp := md5.Sum([]byte(k))
+	//k, err := base64.StdEncoding.DecodeString(parts[1])
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+
+	fp := md5.Sum(p.Bytes)
 	rs := strings.Builder{}
 	for i, b := range fp {
 		rs.WriteString(fmt.Sprintf("%02x", b))
