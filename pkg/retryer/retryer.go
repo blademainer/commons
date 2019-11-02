@@ -3,6 +3,7 @@ package retryer
 import (
 	"context"
 	"errors"
+	"fmt"
 	recover2 "github.com/blademainer/commons/pkg/recover"
 	"time"
 )
@@ -82,11 +83,20 @@ func (d *defaultRetryer) Invoke(do Do) error {
 		select {
 		case <-done:
 			// timeout
+			d.timeoutFn(do)
+			err := fmt.Errorf("context deadline exceeded and we should retry later")
 			return err
 		case <-doneCh:
 			// done
 			return err
 		}
 	}
+}
 
+func (d *defaultRetryer) timeoutFn(do Do) {
+	select {
+	case d.retryChan <- do:
+	default:
+		// chan is fulls
+	}
 }
