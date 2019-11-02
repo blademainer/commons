@@ -1,4 +1,4 @@
-package panic
+package recover
 
 import (
 	"fmt"

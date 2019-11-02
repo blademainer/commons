@@ -4,7 +4,7 @@ import "fmt"
 import "github.com/blademainer/commons/pkg/panic"
 
 func badFunc() {
-	defer panic.Recover()
+	defer recover.Recover()
 	var e error
 	fmt.Println("", e.Error())
 }
@@ -16,8 +16,8 @@ func badFunc2() {
 
 func main() {
 	badFunc()
-	panic.WithRecover(badFunc2)
-	panic.WithRecoverAndHandle(badFunc2, func(i interface{}) {
+	recover.WithRecover(badFunc2)
+	recover.WithRecoverAndHandle(badFunc2, func(i interface{}) {
 		fmt.Println("Error happened! error: ", i)
 	})
 }

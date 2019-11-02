@@ -1,4 +1,4 @@
-package panic
+package recover
 
 import (
 	"fmt"
@@ -14,9 +14,11 @@ func TestWithRecover(t *testing.T) {
 }
 
 func TestWithRecoverAndHandle(t *testing.T) {
-	WithRecoverAndHandle(badFunc2, func(i interface{}) {
+	defer WithRecoverAndHandle(badFunc2, func(i interface{}) {
 		fmt.Println("Error happened! error: ", i)
 	})
+
+	panic("just panic")
 }
 
 func badFunc() {
@@ -34,4 +36,10 @@ func ExampleRecover() {
 	defer Recover()
 	var e error
 	fmt.Println("", e.Error())
+}
+
+func ExampleWithRecoverAndHandle() {
+	defer WithRecoverAndHandle(badFunc2, func(i interface{}) {
+		fmt.Println("Error happened! error: ", i)
+	})
 }
