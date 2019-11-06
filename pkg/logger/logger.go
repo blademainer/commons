@@ -29,10 +29,10 @@ func InitLogLevelFromEnv() {
 	if logLevel, exists = os.LookupEnv(ENV_LOG_LEVEL); !exists {
 		logLevel = DEFAULT_LOG_LEVEL
 	}
-	Log.SetLevel(logLevel)
+	logger.SetLevel(logLevel)
 }
 
-func SetLogLevel() {
+func SetLogLevelFromEnv() {
 	logLevel, _ := os.LookupEnv(ENV_LOG_LEVEL)
 	switch logLevel {
 	case LOG_LEVEL_DEBUG:
@@ -48,13 +48,28 @@ func SetLogLevel() {
 	}
 }
 
+//func SetLogLevel(logLevel string) {
+//	switch logLevel {
+//	case LOG_LEVEL_DEBUG:
+//		logrus.SetLevel(logrus.DebugLevel)
+//	case LOG_LEVEL_INFO:
+//		logrus.SetLevel(logrus.InfoLevel)
+//	case LOG_LEVEL_WARN:
+//		logrus.SetLevel(logrus.WarnLevel)
+//	case LOG_LEVEL_ERROR:
+//		logrus.SetLevel(logrus.ErrorLevel)
+//	default:
+//		logrus.SetLevel(logrus.DebugLevel)
+//	}
+//}
+
 // the config information for logging
 type LoggerConfig struct {
-	Level      string `yaml:"Level"`
-	FileName   string `yaml:"FileName"`
-	MaxBackups int    `yaml:"MaxBackups"`
-	MaxSize    string `yaml:"MaxSize"`
-	MaxAge     int    `yaml:"MaxAge"`
+	Level      string   `yaml:"Level"`
+	FileName   string   `yaml:"FileName"`
+	MaxBackups int      `yaml:"MaxBackups"`
+	MaxSize    string   `yaml:"MaxSize"`
+	MaxAge     int      `yaml:"MaxAge"`
 	Hooks      []string // the name of plugin hook
 }
 
@@ -128,7 +143,7 @@ func (config *LoggerConfig) GetOption() (*Option, error) {
 		return nil, fmt.Errorf("unknow log level %s", config.Level)
 	}
 	maxsizeUnit, _ := strconv.ParseUint(config.MaxSize[:mslen-2], 10, 64)
-	Log.Debugf("rolling file size:%d%s", maxsizeUnit, sunit)
+	logger.Debugf("rolling file size:%d%s", maxsizeUnit, sunit)
 	maxsize := int(int64(maxsizeUnit) * int64(unit) / int64(1024))
 	//convert maxsize to MB
 	option := &Option{
@@ -279,11 +294,9 @@ func (l *Logger) IsFatalEnabled() bool {
 	return l.GetLevel() >= logrus.FatalLevel
 }
 
-var Log = NewLogger()
-var AccessLog = NewLogger()
 
-func Access(fields map[string]interface{}, msg string) {
-	if AccessLog.GetLevel() >= logrus.InfoLevel {
-		AccessLog.WithFields(logrus.Fields(fields)).Infof(msg)
-	}
-}
+//func Access(fields map[string]interface{}, msg string) {
+//	if AccessLog.GetLevel() >= logrus.InfoLevel {
+//		AccessLog.WithFields(logrus.Fields(fields)).Infof(msg)
+//	}
+//}

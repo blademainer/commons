@@ -7,6 +7,7 @@ require (
 	github.com/go-playground/universal-translator v0.16.0 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/leodido/go-urn v1.1.0 // indirect
+	github.com/magiconair/properties v1.8.0
 	github.com/pjoc-team/base-service v0.2.18
 	github.com/sirupsen/logrus v1.4.1
 	github.com/stretchr/testify v1.4.0

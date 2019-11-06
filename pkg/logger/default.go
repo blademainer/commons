@@ -4,6 +4,9 @@ import "github.com/sirupsen/logrus"
 
 var logger = NewLogger()
 
+func SetLevel(level string) {
+	logger.SetLevel(level)
+}
 
 func GetLevel() logrus.Level {
 	return logger.GetLevel()
@@ -18,43 +21,43 @@ func WithFields(fields logrus.Fields) *logrus.Entry {
 
 // The exported function for logger
 func Debug(v ...interface{}) {
-	logger.Debug(v)
+	logger.Debug(v...)
 }
 
 func Info(v ...interface{}) {
-	logger.Info(v)
+	logger.Info(v...)
 }
 
 func Warn(v ...interface{}) {
-	logger.Warn(v)
+	logger.Warn(v...)
 }
 
 func Error(v ...interface{}) {
-	logger.Error(v)
+	logger.Error(v...)
 }
 
 func Fatal(v ...interface{}) {
-	logger.Fatal(v)
+	logger.Fatal(v...)
 }
 
 func Debugf(format string, v ...interface{}) {
-	logger.Debugf(format, v)
+	logger.Debugf(format, v...)
 }
 
 func Infof(format string, v ...interface{}) {
-	logger.Infof(format, v)
+	logger.Infof(format, v...)
 }
 
 func Warnf(format string, v ...interface{}) {
-	logger.Warnf(format, v)
+	logger.Warnf(format, v...)
 }
 
 func Errorf(format string, v ...interface{}) {
-	logger.Errorf(format, v)
+	logger.Errorf(format, v...)
 }
 
 func Fatalf(format string, v ...interface{}) {
-	logger.Fatalf(format, v)
+	logger.Fatalf(format, v...)
 }
 
 func IsDebugEnabled() bool {
