@@ -11,6 +11,22 @@ import (
 	"time"
 )
 
+// now + retryTimes*interval*growth
+func nextRetryNanoSeconds(now time.Time, interval time.Duration, retryTimes int, growth float32) int64 {
+	resultFloat := big.NewFloat(0)
+	nowFloat := big.NewFloat(float64(now.UnixNano()))
+	glowthFloat := big.NewFloat(float64(growth))
+	intervalFloat := big.NewFloat(float64(interval.Nanoseconds()))
+	retryTimesFloat := big.NewFloat(float64(retryTimes + 1))
+
+	resultFloat = resultFloat.Mul(retryTimesFloat, intervalFloat)
+	resultFloat = resultFloat.Mul(resultFloat, glowthFloat)
+	resultFloat = resultFloat.Add(resultFloat, nowFloat)
+	i, _ := resultFloat.Int64()
+	//fmt.Println(accuracy)
+	return i
+}
+
 func (d *defaultRetryer) invoke(do Do) error {
 	timeout, cancelFunc := context.WithTimeout(context.TODO(), d.Timeout)
 	defer cancelFunc()
@@ -46,22 +62,6 @@ func (d *defaultRetryer) getRetryEntry(do Do, retryTimes int) *retryEntry {
 	seconds := nextRetryNanoSeconds(time.Now(), d.Interval, retryTimes, d.GrowthRate)
 	entry.nextInvokeTime = time.Unix(0, seconds)
 	return entry
-}
-
-// now + retryTimes*interval*growth
-func nextRetryNanoSeconds(now time.Time, interval time.Duration, retryTimes int, growth float32) int64 {
-	resultFloat := big.NewFloat(0)
-	nowFloat := big.NewFloat(float64(now.UnixNano()))
-	glowthFloat := big.NewFloat(float64(growth))
-	intervalFloat := big.NewFloat(float64(interval.Nanoseconds()))
-	retryTimesFloat := big.NewFloat(float64(retryTimes + 1))
-
-	resultFloat = resultFloat.Mul(retryTimesFloat, intervalFloat)
-	resultFloat = resultFloat.Mul(resultFloat, glowthFloat)
-	resultFloat = resultFloat.Add(resultFloat, nowFloat)
-	i, _ := resultFloat.Int64()
-	//fmt.Println(accuracy)
-	return i
 }
 
 // insert to retryChan
