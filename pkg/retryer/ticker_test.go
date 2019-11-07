@@ -69,7 +69,7 @@ func Test_defaultRetryer_subset(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d := &defaultRetryer{
 				RWMutex:        tt.fields.RWMutex,
-				RetryStrategy:  tt.fields.RetryStrategy,
+				//RetryStrategy:  tt.fields.RetryStrategy,
 				retryChan:      tt.fields.retryChan,
 				retryEntries:   tt.fields.retryEntries,
 				retryEventChan: tt.fields.retryEventChan,

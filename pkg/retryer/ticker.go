@@ -7,7 +7,7 @@ import (
 )
 
 func (d *defaultRetryer) tick() {
-	tick := time.Tick(d.Interval)
+	tick := time.Tick(d.tickInterval)
 	go func() {
 		for {
 			select {
@@ -69,7 +69,7 @@ func (d *defaultRetryer) doRetry(entry *retryEntry) {
 	defer recover2.Recover()
 	e := d.invoke(entry.fn)
 
-	if entry.retryTimes >= d.MaxRetryTimes {
+	if entry.retryTimes >= d.maxRetryTimes {
 		e = &LimitedError{innerError: e}
 		return
 	}
@@ -106,9 +106,7 @@ func (d *defaultRetryer) reportEvent(entry *retryEntry, err error) {
 }
 
 func (d *defaultRetryer) afterFail(entry *retryEntry) {
-
-	nextRetryNanoSeconds := nextRetryNanoSeconds(time.Now(), d.Interval, entry.retryTimes, d.GrowthRate)
-	nextRetryTime := time.Unix(0, nextRetryNanoSeconds)
+	nextRetryTime := d.nextRetryTime(entry.retryTimes)
 	newE := &retryEntry{
 		fn:             entry.fn,
 		retryTimes:     entry.retryTimes + 1,

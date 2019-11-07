@@ -2,7 +2,6 @@ package retryer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"sync"
@@ -20,32 +19,8 @@ const (
 
 type Do func(ctx context.Context) error
 
-type RetryStrategy struct {
-	Timeout             time.Duration
-	Interval            time.Duration
-	GrowthRate          float32 // rate of growth retry delay.
-	MaxRetrySizeInQueue uint16  // Max size of retry function in queue
-	DiscardStrategy     DiscardStrategy
-	MaxRetryTimes       int
-}
-
-func NewDefaultDoubleGrowthRateRetryStrategy() *RetryStrategy {
-	return NewDoubleGrowthRateRetryStrategy(5*time.Second, 5*time.Second, 10, 1024, DiscardStrategyEarliest)
-}
-
-func NewDoubleGrowthRateRetryStrategy(timeout time.Duration, interval time.Duration, maxRetryTimes int, maxRetrySizeInQueue uint16, discardStrategy DiscardStrategy) *RetryStrategy {
-	strategy := &RetryStrategy{}
-	strategy.Timeout = timeout
-	strategy.Interval = interval
-	strategy.MaxRetrySizeInQueue = maxRetrySizeInQueue
-	strategy.DiscardStrategy = discardStrategy
-	strategy.MaxRetryTimes = maxRetryTimes
-	strategy.GrowthRate = 2.0
-	return strategy
-}
-
 type Retryer interface {
-	SetRetryStrategy(strategy *RetryStrategy) error
+	SetRetryTimeCalculator(calculator RetryTimeCalculator) error
 	Invoke(do Do) error
 	GetEvent() chan RetryEvent
 	Stop() error
@@ -65,12 +40,21 @@ func (r RetryEvent) String() string {
 
 type defaultRetryer struct {
 	sync.RWMutex
-	*RetryStrategy
+	calculator RetryTimeCalculator
 
-	retryChan      chan *retryEntry
-	retryEntries   []*retryEntry
-	retryEventChan chan RetryEvent
-	doneChan       chan struct{}
+	maxRetryTimes   int
+	retryChan       chan *retryEntry
+	retryEntries    []*retryEntry
+	retryEventChan  chan RetryEvent
+	doneChan        chan struct{}
+	tickInterval    time.Duration
+	timeout         time.Duration
+	discardStrategy DiscardStrategy
+}
+
+func (d *defaultRetryer) SetRetryTimeCalculator(calculator RetryTimeCalculator) error {
+	d.calculator = calculator
+	return nil
 }
 
 func (d *defaultRetryer) Stop() error {
@@ -86,7 +70,7 @@ func (d *defaultRetryer) GetEvent() chan RetryEvent {
 }
 
 func (d *defaultRetryer) String() string {
-	return fmt.Sprintf("RetryStrategy: %v, retryEntries: %v", d.RetryStrategy, d.retryEntries)
+	return fmt.Sprintf("RetryStrategy: %v, retryEntries: %v", d.calculator, d.retryEntries)
 }
 
 func (d *defaultRetryer) Len() int {
@@ -111,31 +95,40 @@ func (r *retryEntry) String() string {
 	return fmt.Sprintf("RetryEntry:[nextInvokeTime: %v, fn: %v, retryTimes: %v]", r.nextInvokeTime.Format(time.RFC3339Nano), r.fn, r.retryTimes)
 }
 
-func NewRetryer(strategy *RetryStrategy) (Retryer, error) {
+func NewDoubleGrowthRetryer(timeout time.Duration) (Retryer, error) {
+	strategy := NewDefaultDoubleGrowthRateRetryStrategy()
+	return NewRetryer(strategy, 10, 100, timeout, timeout, DiscardStrategyEarliest)
+}
+
+func NewRetryer(calculator RetryTimeCalculator, maxRetryTimes int, maxRetryEntriesInQueue int, tickInterval time.Duration, timeout time.Duration, discardStrategy DiscardStrategy) (Retryer, error) {
 	retryer := &defaultRetryer{}
 	retryer.doneChan = make(chan struct{})
-	err := retryer.SetRetryStrategy(strategy)
+	err := retryer.SetRetryTimeCalculator(calculator)
 	if err != nil {
 		return nil, err
 	}
-	retryer.retryEventChan = make(chan RetryEvent, strategy.MaxRetrySizeInQueue)
-	retryer.retryChan = make(chan *retryEntry, strategy.MaxRetrySizeInQueue)
+	retryer.retryEventChan = make(chan RetryEvent, maxRetryEntriesInQueue)
+	retryer.retryChan = make(chan *retryEntry, maxRetryEntriesInQueue)
+	retryer.maxRetryTimes = maxRetryTimes
+	retryer.tickInterval = tickInterval
+	retryer.timeout = timeout
+	retryer.discardStrategy = discardStrategy
 	retryer.consumeRetryChan()
 	retryer.tick()
 	return retryer, nil
 }
 
-func (d *defaultRetryer) SetRetryStrategy(strategy *RetryStrategy) error {
-	if strategy.GrowthRate < 0 {
-		return errors.New("growthRate must greater equals 0")
-	}
-	d.RetryStrategy = strategy
-	return nil
-}
+//func (d *defaultRetryer) SetRetryStrategy(strategy *RetryStrategy) error {
+//	if strategy.GrowthRate < 0 {
+//		return errors.New("growthRate must greater equals 0")
+//	}
+//	d.calculator = strategy
+//	return nil
+//}
 
 func (d *defaultRetryer) Invoke(do Do) error {
 	err := d.invoke(do)
-	if IsRetryError(err) && d.MaxRetryTimes > 0 {
+	if IsRetryError(err) && d.maxRetryTimes > 0 {
 		// first time of timeout
 		entry := d.getRetryEntry(do, 0)
 		d.timeoutFn(entry)

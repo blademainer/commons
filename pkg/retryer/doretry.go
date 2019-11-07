@@ -13,22 +13,40 @@ import (
 
 // now + retryTimes*interval*growth
 func nextRetryNanoSeconds(now time.Time, interval time.Duration, retryTimes int, growth float32) int64 {
-	resultFloat := big.NewFloat(0)
+	resultFloat := big.NewFloat(float64(nextRetryDelayNanoseconds(interval, retryTimes, growth)))
 	nowFloat := big.NewFloat(float64(now.UnixNano()))
-	glowthFloat := big.NewFloat(float64(growth))
-	intervalFloat := big.NewFloat(float64(interval.Nanoseconds()))
-	retryTimesFloat := big.NewFloat(float64(retryTimes + 1))
-
-	resultFloat = resultFloat.Mul(retryTimesFloat, intervalFloat)
-	resultFloat = resultFloat.Mul(resultFloat, glowthFloat)
 	resultFloat = resultFloat.Add(resultFloat, nowFloat)
 	i, _ := resultFloat.Int64()
 	//fmt.Println(accuracy)
 	return i
 }
 
+// retryTimes*interval*growth
+func nextRetryDelayNanoseconds(interval time.Duration, retryTimes int, growth float32) int64 {
+	resultFloat := big.NewFloat(0)
+	glowthFloat := big.NewFloat(float64(growth))
+	intervalFloat := big.NewFloat(float64(interval.Nanoseconds()))
+	retryTimesFloat := big.NewFloat(float64(retryTimes + 1))
+
+	resultFloat = resultFloat.Mul(retryTimesFloat, intervalFloat)
+	resultFloat = resultFloat.Mul(resultFloat, glowthFloat)
+	i, _ := resultFloat.Int64()
+	//fmt.Println(accuracy)
+	return i
+}
+
+func (d *defaultRetryer) nextRetryTime(retryTimes int) time.Time {
+	nanoSeconds := d.nextRetryNanoSeconds(retryTimes)
+	return time.Unix(0, nanoSeconds)
+}
+
+func (d *defaultRetryer) nextRetryNanoSeconds(retryTimes int) int64 {
+	nextRetryNanoSeconds := d.calculator.NextRetryDelayNanoseconds(d.tickInterval, retryTimes)
+	return time.Now().UnixNano() + nextRetryNanoSeconds
+}
+
 func (d *defaultRetryer) invoke(do Do) error {
-	timeout, cancelFunc := context.WithTimeout(context.TODO(), d.Timeout)
+	timeout, cancelFunc := context.WithTimeout(context.TODO(), d.timeout)
 	defer cancelFunc()
 	var err error
 	doneCh := make(chan struct{}, 1)
@@ -59,7 +77,8 @@ func (d *defaultRetryer) invoke(do Do) error {
 func (d *defaultRetryer) getRetryEntry(do Do, retryTimes int) *retryEntry {
 	entry := &retryEntry{}
 	entry.fn = do
-	seconds := nextRetryNanoSeconds(time.Now(), d.Interval, retryTimes, d.GrowthRate)
+	nanoseconds := d.calculator.NextRetryDelayNanoseconds(d.tickInterval, retryTimes)
+	seconds := time.Now().UnixNano() + nanoseconds
 	entry.nextInvokeTime = time.Unix(0, seconds)
 	return entry
 }
@@ -96,14 +115,13 @@ func (d *defaultRetryer) consumeRetryChan() {
 	}()
 }
 
-
 func (d *defaultRetryer) discard(entry *retryEntry) {
 	d.Lock()
 	defer d.Unlock()
 	if entry == nil || len(d.retryEntries) == 0 {
 		return
 	}
-	switch d.DiscardStrategy {
+	switch d.discardStrategy {
 	case DiscardStrategyRejectNew:
 		if logger.IsDebugEnabled() {
 			logger.Debugf("discard new entry: %v by strategy: DiscardStrategyRejectNew", entry)

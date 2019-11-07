@@ -11,6 +11,50 @@ import (
 	"time"
 )
 
+func ExampleNewRetryer() {
+	logger.SetLevel(logger.LOG_LEVEL_INFO)
+	//os.Setenv(logger.ENV_LOG_LEVEL, logger.LOG_LEVEL_DEBUG)
+
+	//strategy := NewDefaultDoubleGrowthRateRetryStrategy()
+	fmt.Println(logger.GetLevel())
+
+	strategy := NewDefaultDoubleGrowthRateRetryStrategy()
+
+	retryer, e := NewRetryer(strategy, 10, 100, 5*time.Millisecond, 5*time.Millisecond, DiscardStrategyEarliest)
+	if e != nil {
+		panic(e)
+	}
+
+	event := retryer.GetEvent()
+	go func() {
+		for {
+			select {
+			case e, running := <-event:
+				if !running {
+					fmt.Println("stopped!")
+					return
+				}
+				fmt.Printf("event: %v running: %v\n", e, running)
+			}
+		}
+	}()
+
+	index := int32(0)
+	e = retryer.Invoke(func(ctx context.Context) error {
+		fmt.Println("start...", index)
+		time.Sleep(10 * time.Millisecond)
+		fmt.Println("finish...", index)
+		//index++
+		atomic.AddInt32(&index, 1)
+		return nil
+	})
+	time.Sleep(1 * time.Second)
+	e = retryer.Stop()
+	if e != nil {
+		fmt.Println(e.Error())
+	}
+}
+
 func Test_defaultRetryer_Invoke(t *testing.T) {
 	logger.SetLevel(logger.LOG_LEVEL_INFO)
 	//os.Setenv(logger.ENV_LOG_LEVEL, logger.LOG_LEVEL_DEBUG)
@@ -18,9 +62,9 @@ func Test_defaultRetryer_Invoke(t *testing.T) {
 	//strategy := NewDefaultDoubleGrowthRateRetryStrategy()
 	fmt.Println(logger.GetLevel())
 
-	strategy := NewDoubleGrowthRateRetryStrategy(5*time.Millisecond, 5*time.Millisecond, 10, 100, DiscardStrategyEarliest)
+	strategy := NewDefaultDoubleGrowthRateRetryStrategy()
 
-	retryer, e := NewRetryer(strategy)
+	retryer, e := NewRetryer(strategy, 10, 100, 5*time.Millisecond, 5*time.Millisecond, DiscardStrategyEarliest)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -29,8 +73,12 @@ func Test_defaultRetryer_Invoke(t *testing.T) {
 	go func() {
 		for {
 			select {
-			case e := <-event:
-				fmt.Println("event: ", e)
+			case e, running := <-event:
+				if !running {
+					fmt.Println("stopped!")
+					return
+				}
+				fmt.Printf("event: %v running: %v\n", e, running)
 			}
 		}
 	}()
@@ -150,7 +198,7 @@ func Test_defaultRetryer_discard(t *testing.T) {
 	}
 	strategy := NewDefaultDoubleGrowthRateRetryStrategy()
 
-	retryer, _ := NewRetryer(strategy)
+	retryer, _ := NewDoubleGrowthRetryer(10 * time.Second)
 	r := retryer.(*defaultRetryer)
 	r.retryEntries = entries
 	fmt.Println("last one: ", r.retryEntries[len(r.retryEntries)-1])
