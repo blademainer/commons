@@ -12,7 +12,7 @@ import (
 )
 
 func Test_defaultRetryer_Invoke(t *testing.T) {
-	logger.SetLevel(logger.LOG_LEVEL_INFO)
+	logger.SetLevel(logger.LOG_LEVEL_DEBUG)
 	//os.Setenv(logger.ENV_LOG_LEVEL, logger.LOG_LEVEL_DEBUG)
 
 	//strategy := NewDefaultDoubleGrowthRateRetryStrategy()

@@ -1,6 +1,7 @@
 package retryer
 
 import (
+	"fmt"
 	"github.com/blademainer/commons/pkg/logger"
 	recover2 "github.com/blademainer/commons/pkg/recover"
 	"time"
@@ -54,7 +55,9 @@ func (d *defaultRetryer) subset(subIndex int) []*retryEntry {
 		return nil
 	}
 	if subIndex == len(d.retryEntries) {
-		return d.retryEntries
+		subset := d.retryEntries
+		d.retryEntries = make([]*retryEntry, 0)
+		return subset
 	}
 	d.Lock()
 	defer d.Unlock()
