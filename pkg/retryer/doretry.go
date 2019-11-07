@@ -12,7 +12,7 @@ import (
 )
 
 // now + retryTimes*interval*growth
-func nextRetryNanoSeconds(now time.Time, interval time.Duration, retryTimes int, growth float32) int64 {
+func nextRetryNanoSeconds(now time.Time, interval time.Duration, retryTimes int, growth int) int64 {
 	resultFloat := big.NewFloat(float64(nextRetryDelayNanoseconds(interval, retryTimes, growth)))
 	nowFloat := big.NewFloat(float64(now.UnixNano()))
 	resultFloat = resultFloat.Add(resultFloat, nowFloat)
@@ -22,15 +22,15 @@ func nextRetryNanoSeconds(now time.Time, interval time.Duration, retryTimes int,
 }
 
 // retryTimes*interval*growth
-func nextRetryDelayNanoseconds(interval time.Duration, retryTimes int, growth float32) int64 {
-	resultFloat := big.NewFloat(0)
-	glowthFloat := big.NewFloat(float64(growth))
+func nextRetryDelayNanoseconds(interval time.Duration, retryTimes int, growth int) int64 {
+	resultFloat := big.NewInt(0)
+	growthFloat := big.NewInt(int64(growth))
 	intervalFloat := big.NewInt(interval.Nanoseconds())
 	retryTimesFloat := big.NewInt(int64(retryTimes + 1))
 
-	resultFloat = big.NewInt(0).Exp(intervalFloat, retryTimesFloat)
-	resultFloat = resultFloat.Mul(resultFloat, glowthFloat)
-	i, _ := resultFloat.Int64()
+	resultFloat = resultFloat.Exp(growthFloat, retryTimesFloat, nil)
+	resultFloat = resultFloat.Mul(resultFloat, intervalFloat)
+	i := resultFloat.Int64()
 	//fmt.Println(accuracy)
 	return i
 }

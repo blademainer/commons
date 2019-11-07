@@ -126,6 +126,8 @@ func NewRetryer(calculator RetryTimeCalculator, maxRetryTimes int, maxRetryEntri
 //	return nil
 //}
 
+// Invoke function.
+// Retryer should be retry when timeout exceed or function is returns RetryError
 func (d *defaultRetryer) Invoke(do Do) error {
 	err := d.invoke(do)
 	if IsRetryError(err) && d.maxRetryTimes > 0 {

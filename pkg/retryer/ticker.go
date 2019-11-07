@@ -107,6 +107,9 @@ func (d *defaultRetryer) reportEvent(entry *retryEntry, err error) {
 
 func (d *defaultRetryer) afterFail(entry *retryEntry) {
 	nextRetryTime := d.nextRetryTime(entry.retryTimes)
+	if logger.IsDebugEnabled() {
+		logger.Debugf("entry: %v next retry time: %v", entry, nextRetryTime.Format(time.RFC3339Nano))
+	}
 	newE := &retryEntry{
 		fn:             entry.fn,
 		retryTimes:     entry.retryTimes + 1,

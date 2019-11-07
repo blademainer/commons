@@ -7,15 +7,15 @@ type RetryTimeCalculator interface {
 }
 
 type RetryStrategy struct {
-	GrowthRate      float32 // rate of growth retry delay.
+	GrowthRate      int // rate of growth retry delay.
 	DiscardStrategy DiscardStrategy
 }
 
 func NewDefaultDoubleGrowthRateRetryStrategy() *RetryStrategy {
-	return NewDefaultRetryStrategy(2.0)
+	return NewDefaultRetryStrategy(2)
 }
 
-func NewDefaultRetryStrategy(growthRate float32) *RetryStrategy {
+func NewDefaultRetryStrategy(growthRate int) *RetryStrategy {
 	strategy := &RetryStrategy{}
 	//strategy.Timeout = timeout
 	//strategy.Interval = interval

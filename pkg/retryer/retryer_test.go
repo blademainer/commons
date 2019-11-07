@@ -56,7 +56,7 @@ func ExampleNewRetryer() {
 }
 
 func Test_defaultRetryer_Invoke(t *testing.T) {
-	logger.SetLevel(logger.LOG_LEVEL_INFO)
+	logger.SetLevel(logger.LOG_LEVEL_DEBUG)
 	//os.Setenv(logger.ENV_LOG_LEVEL, logger.LOG_LEVEL_DEBUG)
 
 	//strategy := NewDefaultDoubleGrowthRateRetryStrategy()
@@ -64,7 +64,7 @@ func Test_defaultRetryer_Invoke(t *testing.T) {
 
 	strategy := NewDefaultDoubleGrowthRateRetryStrategy()
 
-	retryer, e := NewRetryer(strategy, 10, 100, 5*time.Second, 5*time.Second, DiscardStrategyEarliest)
+	retryer, e := NewRetryer(strategy, 10, 100, 50*time.Millisecond, 50*time.Millisecond, DiscardStrategyEarliest)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -86,74 +86,19 @@ func Test_defaultRetryer_Invoke(t *testing.T) {
 	index := int32(0)
 	e = retryer.Invoke(func(ctx context.Context) error {
 		fmt.Println("start...", index)
-		time.Sleep(10 * time.Second)
+		time.Sleep(100 * time.Millisecond)
 		fmt.Println("finish...", index)
 		//index++
 		atomic.AddInt32(&index, 1)
 		return nil
 	})
-	time.Sleep(100 * time.Second)
+	time.Sleep(5 * time.Second)
 	retryer.Stop()
 	if e != nil {
 		fmt.Println(e.Error())
 	}
 }
 
-func Test_mul(t *testing.T) {
-	type args struct {
-		now        time.Time
-		interval   time.Duration
-		retryTimes int
-		growth     float32
-	}
-	format := time.Now().Format(time.RFC3339)
-	fmt.Println(format)
-	from, e := time.Parse(time.RFC3339, "2006-01-02T15:04:05+08:00")
-	if e != nil {
-		t.Fatal(e)
-	}
-	target, e := time.Parse(time.RFC3339, "2006-01-02T15:04:15+08:00")
-	if e != nil {
-		t.Fatal(e)
-	}
-	target1, e := time.Parse(time.RFC3339, "2006-01-02T15:04:25+08:00")
-	if e != nil {
-		t.Fatal(e)
-	}
-	target2, e := time.Parse(time.RFC3339, "2006-01-02T15:04:35+08:00")
-	if e != nil {
-		t.Fatal(e)
-	}
-	fmt.Println("want...", target2.UnixNano())
-	tests := []struct {
-		name string
-		args args
-		want int64
-	}{
-		{
-			name: "add0",
-			args: args{from, 5 * time.Second, 0, 2.0},
-			want: target.UnixNano(),
-		},
-		{
-			name: "add1",
-			args: args{from, 5 * time.Second, 1, 2.0},
-			want: target1.UnixNano(),
-		},
-		{
-			name: "add2",
-			args: args{from, 5 * time.Second, 2, 2.0},
-			want: target2.UnixNano(),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := nextRetryNanoSeconds(tt.args.now, tt.args.interval, tt.args.retryTimes, tt.args.growth); got != tt.want {
-				t.Errorf("nextRetryNanoSeconds() = %v(%v), want %v((%v))", got, time.Unix(0, got).Format(time.RFC3339), tt.want, time.Unix(0, tt.want).Format(time.RFC3339))
-			}
-		})
-	}
-}
 
 func Test_defaultRetryer_insertRetryEntry(t *testing.T) {
 	target0, e := time.Parse(time.RFC3339, "2006-01-02T15:04:05+08:00")
