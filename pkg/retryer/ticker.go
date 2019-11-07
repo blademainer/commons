@@ -1,7 +1,6 @@
 package retryer
 
 import (
-	"fmt"
 	"github.com/blademainer/commons/pkg/logger"
 	recover2 "github.com/blademainer/commons/pkg/recover"
 	"time"
