@@ -27,6 +27,7 @@ func ExampleNewRetryer() {
 
 	event := retryer.GetEvent()
 	go func() {
+		count := 0
 		for {
 			select {
 			case e, running := <-event:
@@ -34,7 +35,8 @@ func ExampleNewRetryer() {
 					fmt.Println("stopped!")
 					return
 				}
-				fmt.Printf("event: %v running: %v\n", e, running)
+				count++
+				fmt.Printf("%v event: %v running: %v\n", count, e, running)
 			}
 		}
 	}()
@@ -56,7 +58,7 @@ func ExampleNewRetryer() {
 }
 
 func Test_defaultRetryer_Invoke(t *testing.T) {
-	logger.SetLevel(logger.LOG_LEVEL_DEBUG)
+	logger.SetLevel(logger.LOG_LEVEL_INFO)
 	//os.Setenv(logger.ENV_LOG_LEVEL, logger.LOG_LEVEL_DEBUG)
 
 	//strategy := NewDefaultDoubleGrowthRateRetryStrategy()
@@ -64,13 +66,14 @@ func Test_defaultRetryer_Invoke(t *testing.T) {
 
 	strategy := NewDefaultDoubleGrowthRateRetryStrategy()
 
-	retryer, e := NewRetryer(strategy, 10, 100, 50*time.Millisecond, 50*time.Millisecond, DiscardStrategyEarliest)
+	retryer, e := NewRetryer(strategy, 10, 100, 10*time.Millisecond, 10*time.Millisecond, DiscardStrategyEarliest)
 	if e != nil {
 		t.Fatal(e)
 	}
 
 	event := retryer.GetEvent()
 	go func() {
+		count := 0
 		for {
 			select {
 			case e, running := <-event:
@@ -78,7 +81,8 @@ func Test_defaultRetryer_Invoke(t *testing.T) {
 					fmt.Println("stopped!")
 					return
 				}
-				fmt.Printf("event: %v running: %v\n", e, running)
+				count++
+				fmt.Printf("%v event: %v running: %v\n", count, e, running)
 			}
 		}
 	}()
@@ -86,13 +90,13 @@ func Test_defaultRetryer_Invoke(t *testing.T) {
 	index := int32(0)
 	e = retryer.Invoke(func(ctx context.Context) error {
 		fmt.Println("start...", index)
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(20 * time.Millisecond)
 		fmt.Println("finish...", index)
 		//index++
 		atomic.AddInt32(&index, 1)
 		return nil
 	})
-	time.Sleep(5 * time.Second)
+	time.Sleep(20 * time.Second)
 	retryer.Stop()
 	if e != nil {
 		fmt.Println(e.Error())
