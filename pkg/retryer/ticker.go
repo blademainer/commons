@@ -2,6 +2,7 @@ package retryer
 
 import (
 	"github.com/blademainer/commons/pkg/logger"
+	recover2 "github.com/blademainer/commons/pkg/recover"
 	"time"
 )
 
@@ -60,4 +61,56 @@ func (d *defaultRetryer) subset(subIndex int) []*retryEntry {
 	subset := d.retryEntries[:subIndex]
 	d.retryEntries = d.retryEntries[subIndex:]
 	return subset
+}
+
+func (d *defaultRetryer) doRetry(entry *retryEntry) {
+	defer recover2.Recover()
+	e := d.invoke(entry.fn)
+
+	if entry.retryTimes >= d.MaxRetryTimes {
+		e = &LimitedError{innerError: e}
+		return
+	}
+
+	defer d.reportEvent(entry, e)
+	if !IsRetryError(e) {
+		return
+	}
+	d.afterFail(entry)
+}
+
+func (d *defaultRetryer) reportEvent(entry *retryEntry, err error) {
+	event := RetryEvent{}
+	event.RetryTimes = entry.retryTimes
+	event.Time = time.Now()
+	event.Fn = entry.fn
+	event.Error = err
+	if err == nil || !IsRetryError(err) {
+		event.Success = true
+	} else {
+		event.Success = false
+	}
+
+	select {
+	case d.retryEventChan <- event:
+		if logger.IsDebugEnabled() {
+			logger.Debugf("report event: %v", event)
+		}
+	default:
+		if logger.IsDebugEnabled() {
+			logger.Debugf("event chan is full, discard event: %v", event)
+		}
+	}
+}
+
+func (d *defaultRetryer) afterFail(entry *retryEntry) {
+
+	nextRetryNanoSeconds := nextRetryNanoSeconds(time.Now(), d.Interval, entry.retryTimes, d.GrowthRate)
+	nextRetryTime := time.Unix(0, nextRetryNanoSeconds)
+	newE := &retryEntry{
+		fn:             entry.fn,
+		retryTimes:     entry.retryTimes + 1,
+		nextInvokeTime: nextRetryTime,
+	}
+	d.timeoutFn(newE)
 }

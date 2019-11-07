@@ -6,12 +6,13 @@ import (
 	"github.com/blademainer/commons/pkg/logger"
 	assert "github.com/stretchr/testify/assert"
 	"sort"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
 func Test_defaultRetryer_Invoke(t *testing.T) {
-	logger.SetLevel(logger.LOG_LEVEL_DEBUG)
+	logger.SetLevel(logger.LOG_LEVEL_INFO)
 	//os.Setenv(logger.ENV_LOG_LEVEL, logger.LOG_LEVEL_DEBUG)
 
 	//strategy := NewDefaultDoubleGrowthRateRetryStrategy()
@@ -34,12 +35,13 @@ func Test_defaultRetryer_Invoke(t *testing.T) {
 		}
 	}()
 
-	index := 0
+	index := int32(0)
 	e = retryer.Invoke(func(ctx context.Context) error {
 		fmt.Println("start...", index)
 		time.Sleep(10 * time.Millisecond)
 		fmt.Println("finish...", index)
-		index++
+		//index++
+		atomic.AddInt32(&index, 1)
 		return nil
 	})
 	time.Sleep(1 * time.Second)
