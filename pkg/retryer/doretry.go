@@ -25,10 +25,10 @@ func nextRetryNanoSeconds(now time.Time, interval time.Duration, retryTimes int,
 func nextRetryDelayNanoseconds(interval time.Duration, retryTimes int, growth float32) int64 {
 	resultFloat := big.NewFloat(0)
 	glowthFloat := big.NewFloat(float64(growth))
-	intervalFloat := big.NewFloat(float64(interval.Nanoseconds()))
-	retryTimesFloat := big.NewFloat(float64(retryTimes + 1))
+	intervalFloat := big.NewInt(interval.Nanoseconds())
+	retryTimesFloat := big.NewInt(int64(retryTimes + 1))
 
-	resultFloat = resultFloat.Mul(retryTimesFloat, intervalFloat)
+	resultFloat = big.NewInt(0).Exp(intervalFloat, retryTimesFloat)
 	resultFloat = resultFloat.Mul(resultFloat, glowthFloat)
 	i, _ := resultFloat.Int64()
 	//fmt.Println(accuracy)

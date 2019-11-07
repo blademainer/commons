@@ -64,7 +64,7 @@ func Test_defaultRetryer_Invoke(t *testing.T) {
 
 	strategy := NewDefaultDoubleGrowthRateRetryStrategy()
 
-	retryer, e := NewRetryer(strategy, 10, 100, 5*time.Millisecond, 5*time.Millisecond, DiscardStrategyEarliest)
+	retryer, e := NewRetryer(strategy, 10, 100, 5*time.Second, 5*time.Second, DiscardStrategyEarliest)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -86,13 +86,13 @@ func Test_defaultRetryer_Invoke(t *testing.T) {
 	index := int32(0)
 	e = retryer.Invoke(func(ctx context.Context) error {
 		fmt.Println("start...", index)
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(10 * time.Second)
 		fmt.Println("finish...", index)
 		//index++
 		atomic.AddInt32(&index, 1)
 		return nil
 	})
-	time.Sleep(1 * time.Second)
+	time.Sleep(100 * time.Second)
 	retryer.Stop()
 	if e != nil {
 		fmt.Println(e.Error())
