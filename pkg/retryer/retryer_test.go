@@ -141,7 +141,6 @@ func Test_defaultRetryer_discard(t *testing.T) {
 	for i := 0; i < 1024; i++ {
 		entries[i] = &retryEntry{retryTimes: i, nextInvokeTime: time.Unix(0, now+int64(i))}
 	}
-	strategy := NewDefaultDoubleGrowthRateRetryStrategy()
 
 	retryer, _ := NewDoubleGrowthRetryer(10 * time.Second)
 	r := retryer.(*defaultRetryer)
@@ -150,7 +149,8 @@ func Test_defaultRetryer_discard(t *testing.T) {
 
 	entry := &retryEntry{retryTimes: 111, nextInvokeTime: time.Unix(0, now+int64(0))}
 
-	strategy.DiscardStrategy = DiscardStrategyRejectNew
+	d := retryer.(*defaultRetryer)
+	d.discardStrategy = DiscardStrategyRejectNew
 	r.discard(entry)
 	assert.NotEqual(t, entries[0], entry)
 	for _, e := range r.retryEntries {
@@ -158,7 +158,7 @@ func Test_defaultRetryer_discard(t *testing.T) {
 	}
 	fmt.Println()
 
-	strategy.DiscardStrategy = DiscardStrategyLatest
+	d.discardStrategy = DiscardStrategyLatest
 	r.discard(entry)
 	assert.Equal(t, r.retryEntries[0], entry)
 	for _, e := range r.retryEntries {
@@ -166,7 +166,7 @@ func Test_defaultRetryer_discard(t *testing.T) {
 	}
 	fmt.Println()
 
-	strategy.DiscardStrategy = DiscardStrategyEarliest
+	d.discardStrategy = DiscardStrategyEarliest
 	r.discard(entry)
 	assert.Equal(t, r.retryEntries[0], entry)
 	assert.Equal(t, r.retryEntries[1], entry)
