@@ -76,6 +76,8 @@ type defaultRetryer struct {
 func (d *defaultRetryer) Stop() error {
 	d.doneChan <- struct{}{}
 	close(d.doneChan)
+	close(d.retryChan)
+	close(d.retryEventChan)
 	return nil
 }
 

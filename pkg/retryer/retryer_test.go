@@ -12,7 +12,7 @@ import (
 )
 
 func Test_defaultRetryer_Invoke(t *testing.T) {
-	logger.SetLevel(logger.LOG_LEVEL_DEBUG)
+	logger.SetLevel(logger.LOG_LEVEL_INFO)
 	//os.Setenv(logger.ENV_LOG_LEVEL, logger.LOG_LEVEL_DEBUG)
 
 	//strategy := NewDefaultDoubleGrowthRateRetryStrategy()
@@ -45,6 +45,7 @@ func Test_defaultRetryer_Invoke(t *testing.T) {
 		return nil
 	})
 	time.Sleep(1 * time.Second)
+	retryer.Stop()
 	if e != nil {
 		fmt.Println(e.Error())
 	}
