@@ -53,13 +53,13 @@ func (d *defaultRetryer) subset(subIndex int) []*retryEntry {
 	if subIndex <= 0 || subIndex > len(d.retryEntries) {
 		return nil
 	}
+	d.Lock()
+	defer d.Unlock()
 	if subIndex == len(d.retryEntries) {
 		subset := d.retryEntries
 		d.retryEntries = make([]*retryEntry, 0)
 		return subset
 	}
-	d.Lock()
-	defer d.Unlock()
 	subset := d.retryEntries[:subIndex]
 	d.retryEntries = d.retryEntries[subIndex:]
 	return subset

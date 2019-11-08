@@ -6,6 +6,7 @@ import (
 	"github.com/blademainer/commons/pkg/logger"
 	assert "github.com/stretchr/testify/assert"
 	"sort"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -66,12 +67,15 @@ func Test_defaultRetryer_Invoke(t *testing.T) {
 
 	strategy := NewDefaultDoubleGrowthRateRetryStrategy()
 
-	retryer, e := NewRetryer(strategy, 10, 100, 10*time.Millisecond, 10*time.Millisecond, DiscardStrategyEarliest)
+	maxRetryTimes := 10
+	retryer, e := NewRetryer(strategy, maxRetryTimes, 100, 10*time.Millisecond, 10*time.Millisecond, DiscardStrategyEarliest)
 	if e != nil {
 		t.Fatal(e)
 	}
 
 	event := retryer.GetEvent()
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
 		count := 0
 		for {
@@ -83,6 +87,9 @@ func Test_defaultRetryer_Invoke(t *testing.T) {
 				}
 				count++
 				fmt.Printf("%v event: %v running: %v\n", count, e, running)
+				if e.Success {
+					wg.Done()
+				}
 			}
 		}
 	}()
@@ -90,19 +97,18 @@ func Test_defaultRetryer_Invoke(t *testing.T) {
 	index := int32(0)
 	e = retryer.Invoke(func(ctx context.Context) error {
 		fmt.Println("start...", index)
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(time.Duration((int32(maxRetryTimes)-index)*10) * time.Millisecond)
 		fmt.Println("finish...", index)
 		//index++
 		atomic.AddInt32(&index, 1)
 		return nil
 	})
-	time.Sleep(20 * time.Second)
+	wg.Wait()
 	retryer.Stop()
 	if e != nil {
 		fmt.Println(e.Error())
 	}
 }
-
 
 func Test_defaultRetryer_insertRetryEntry(t *testing.T) {
 	target0, e := time.Parse(time.RFC3339, "2006-01-02T15:04:05+08:00")
