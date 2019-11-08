@@ -12,52 +12,6 @@ import (
 	"time"
 )
 
-func ExampleNewRetryer() {
-	logger.SetLevel(logger.LOG_LEVEL_INFO)
-	//os.Setenv(logger.ENV_LOG_LEVEL, logger.LOG_LEVEL_DEBUG)
-
-	//strategy := NewDefaultDoubleGrowthRateRetryStrategy()
-	fmt.Println(logger.GetLevel())
-
-	strategy := NewDefaultDoubleGrowthRateRetryStrategy()
-
-	retryer, e := NewRetryer(strategy, 10, 100, 5*time.Millisecond, 5*time.Millisecond, DiscardStrategyEarliest)
-	if e != nil {
-		panic(e)
-	}
-
-	event := retryer.GetEvent()
-	go func() {
-		count := 0
-		for {
-			select {
-			case e, running := <-event:
-				if !running {
-					fmt.Println("stopped!")
-					return
-				}
-				count++
-				fmt.Printf("%v event: %v running: %v\n", count, e, running)
-			}
-		}
-	}()
-
-	index := int32(0)
-	e = retryer.Invoke(func(ctx context.Context) error {
-		fmt.Println("start...", index)
-		time.Sleep(10 * time.Millisecond)
-		fmt.Println("finish...", index)
-		//index++
-		atomic.AddInt32(&index, 1)
-		return nil
-	})
-	time.Sleep(1 * time.Second)
-	e = retryer.Stop()
-	if e != nil {
-		fmt.Println(e.Error())
-	}
-}
-
 func Test_defaultRetryer_Invoke(t *testing.T) {
 	logger.SetLevel(logger.LOG_LEVEL_INFO)
 	//os.Setenv(logger.ENV_LOG_LEVEL, logger.LOG_LEVEL_DEBUG)
@@ -97,7 +51,7 @@ func Test_defaultRetryer_Invoke(t *testing.T) {
 	index := int32(0)
 	e = retryer.Invoke(func(ctx context.Context) error {
 		fmt.Println("start...", index)
-		time.Sleep(time.Duration((int32(maxRetryTimes)-index)*10) * time.Millisecond)
+		time.Sleep(time.Duration((int32(maxRetryTimes)-index)*5) * time.Millisecond)
 		fmt.Println("finish...", index)
 		//index++
 		atomic.AddInt32(&index, 1)
@@ -186,4 +140,50 @@ func Test_defaultRetryer_discard(t *testing.T) {
 	}
 	fmt.Println()
 
+}
+
+func ExampleNewRetryer() {
+	logger.SetLevel(logger.LOG_LEVEL_INFO)
+	//os.Setenv(logger.ENV_LOG_LEVEL, logger.LOG_LEVEL_DEBUG)
+
+	//strategy := NewDefaultDoubleGrowthRateRetryStrategy()
+	fmt.Println(logger.GetLevel())
+
+	strategy := NewDefaultDoubleGrowthRateRetryStrategy()
+
+	retryer, e := NewRetryer(strategy, 10, 100, 5*time.Millisecond, 5*time.Millisecond, DiscardStrategyEarliest)
+	if e != nil {
+		panic(e)
+	}
+
+	event := retryer.GetEvent()
+	go func() {
+		count := 0
+		for {
+			select {
+			case e, running := <-event:
+				if !running {
+					fmt.Println("stopped!")
+					return
+				}
+				count++
+				fmt.Printf("%v event: %v running: %v\n", count, e, running)
+			}
+		}
+	}()
+
+	index := int32(0)
+	e = retryer.Invoke(func(ctx context.Context) error {
+		fmt.Println("start...", index)
+		time.Sleep(10 * time.Millisecond)
+		fmt.Println("finish...", index)
+		//index++
+		atomic.AddInt32(&index, 1)
+		return nil
+	})
+	time.Sleep(1 * time.Second)
+	e = retryer.Stop()
+	if e != nil {
+		fmt.Println(e.Error())
+	}
 }
