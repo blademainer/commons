@@ -7,7 +7,7 @@ import (
 
 func InitConfig(uri string, configInstance interface{}){
 	if configInstance != nil && reflect.TypeOf(configInstance).Kind() != reflect.Ptr {
-		logger.Log.Errorf("Config instance is not ptr kind!")
+		logger.Errorf("Config instance is not ptr kind!")
 		panic("Config instance is not ptr kind!")
 	}
 }
