@@ -18,7 +18,7 @@ func TestWithRecoverAndHandle(t *testing.T) {
 		fmt.Println("Error happened! error: ", i)
 	})
 
-	panic("just panic")
+	//panic("just panic")
 }
 
 func badFunc() {

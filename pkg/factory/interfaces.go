@@ -43,10 +43,10 @@ type InstanceExecutorFunc func(configInstance interface{}) (interface{}, error)
 //
 func (f *Factory) RegisterExecutor(executorType string, instanceFunc InstanceExecutorFunc, configInstance interface{}) {
 	if configInstance != nil && reflect.TypeOf(configInstance).Kind() != reflect.Ptr {
-		logger.Log.Errorf("Config instance is not ptr kind!")
+		logger.Errorf("Config instance is not ptr kind!")
 		panic("Config instance is not ptr kind!")
 	}
-	logger.Log.Infof("Register executor: %v with instanceFunc: %v", executorType, instanceFunc)
+	logger.Infof("Register executor: %v with instanceFunc: %v", executorType, instanceFunc)
 	f.executorMap[executorType] = instanceFunc
 	f.executorTypeAndConfigInstanceMap[executorType] = configInstance
 }
@@ -77,15 +77,15 @@ func (f *Factory) InstanceExecutor(config Config) (executor interface{}, err err
 	if configInstance != nil && config.FactoryConfigValue != "" {
 		err := config.ConvertInterfaceTypeToConfigInstance(configInstance)
 		if err != nil {
-			logger.Log.Errorf("Failed to unmarshal json: %v to instance type: %v, error: %v", config.FactoryConfigValue, configInstance, err.Error())
+			logger.Errorf("Failed to unmarshal json: %v to instance type: %v, error: %v", config.FactoryConfigValue, configInstance, err.Error())
 		} else {
-			logger.Log.Infof("Convert interface type to configInstance: %v", configInstance)
+			logger.Infof("Convert interface type to configInstance: %v", configInstance)
 		}
 	}
 	executorFunc := f.executorMap[executorType]
 	executor, err = executorFunc(configInstance)
 	f.executorTypeAndExecutorMap[executorType] = executor
-	logger.Log.Infof("Init executorType: %v executor: %v error: %v", executorType, executor, err)
+	logger.Infof("Init executorType: %v executor: %v error: %v", executorType, executor, err)
 	return
 }
 

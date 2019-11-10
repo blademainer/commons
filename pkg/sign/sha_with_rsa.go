@@ -20,7 +20,7 @@ func SignPKCS8(src []byte, privateKey string, hash crypto.Hash) ([]byte, error) 
 	bytes, _ := base64.StdEncoding.DecodeString(privateKey)
 	pri, err := x509.ParsePKCS8PrivateKey(bytes)
 	if err != nil {
-		logger.Log.Errorf("Parse private key with error: %v", err.Error())
+		logger.Errorf("Parse private key with error: %v", err.Error())
 		return nil, err
 	}
 	//rsa.Sign
