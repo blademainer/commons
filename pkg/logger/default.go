@@ -20,44 +20,46 @@ func WithFields(fields logrus.Fields) *logrus.Entry {
 }
 
 // The exported function for logger
+// The exported function for logger
 func Debug(v ...interface{}) {
-	logger.Debug(v...)
+	logger.WithCaller(2).Debug(v...)
+	//logger.Debug(v...)
 }
 
 func Info(v ...interface{}) {
-	logger.Info(v...)
+	logger.WithCaller(2).Info(v...)
 }
 
 func Warn(v ...interface{}) {
-	logger.Warn(v...)
+	logger.WithCaller(2).Warn(v...)
 }
 
 func Error(v ...interface{}) {
-	logger.Error(v...)
+	logger.WithCaller(2).Error(v...)
 }
 
 func Fatal(v ...interface{}) {
-	logger.Fatal(v...)
+	logger.WithCaller(2).Fatal(v...)
 }
 
 func Debugf(format string, v ...interface{}) {
-	logger.Debugf(format, v...)
+	logger.WithCaller(2).Debugf(format, v...)
 }
 
 func Infof(format string, v ...interface{}) {
-	logger.Infof(format, v...)
+	logger.WithCaller(2).Infof(format, v...)
 }
 
 func Warnf(format string, v ...interface{}) {
-	logger.Warnf(format, v...)
+	logger.WithCaller(2).Warnf(format, v...)
 }
 
 func Errorf(format string, v ...interface{}) {
-	logger.Errorf(format, v...)
+	logger.WithCaller(2).Errorf(format, v...)
 }
 
 func Fatalf(format string, v ...interface{}) {
-	logger.Fatalf(format, v...)
+	logger.WithCaller(2).Fatalf(format, v...)
 }
 
 func IsDebugEnabled() bool {
