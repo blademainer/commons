@@ -47,12 +47,12 @@ func (m *Md5) sign(source []byte, key string) (string, error) {
 func (m *Md5) checkSign(source []byte, signMsg string, key string) error {
 	generated, e := m.sign(source, key)
 	if e != nil {
-		logger.Log.Errorf("Failed to generate sign! error: %v", e.Error())
+		logger.Errorf("Failed to generate sign! error: %v", e.Error())
 		return e
 	}
 	if !util.EqualsIgnoreCase(generated, signMsg) {
 		e := errors.New("check sign error")
-		logger.Log.Warnf("Failed to check sign! ours: %v actual: %v", generated, signMsg)
+		logger.Warnf("Failed to check sign! ours: %v actual: %v", generated, signMsg)
 		return e
 	}
 
@@ -69,23 +69,23 @@ type Sha256WithRSA struct {
 func (s *Sha256WithRSA) sign(source []byte, key string) (sign string, err error) {
 	signBytes, err := SignPKCS1v15WithStringKey(source, key, crypto.SHA256)
 	if err != nil {
-		logger.Log.Errorf("Failed to sign! error: %v key: %v", err.Error(), key)
+		logger.Errorf("Failed to sign! error: %v key: %v", err.Error(), key)
 		return
 	}
 	sign = base64.StdEncoding.EncodeToString(signBytes)
-	logger.Log.Debugf("Encode source: %v to sign: %v", string(source), sign)
+	logger.Debugf("Encode source: %v to sign: %v", string(source), sign)
 	return
 }
 
 func (*Sha256WithRSA) checkSign(source []byte, signMsg string, key string) (err error) {
 	sign, err := base64.StdEncoding.DecodeString(signMsg)
 	if err != nil {
-		logger.Log.Errorf("Failed to check sign! decode sign: %v with error: %v", signMsg, err.Error())
+		logger.Errorf("Failed to check sign! decode sign: %v with error: %v", signMsg, err.Error())
 		return
 	}
 	err = VerifyPKCS1v15WithStringKey(source, sign, key, crypto.SHA256)
 	if err != nil {
-		logger.Log.Errorf("Failed to check sign! check source: %v sign: %v with error: %v", string(source), signMsg, err.Error())
+		logger.Errorf("Failed to check sign! check source: %v sign: %v with error: %v", string(source), signMsg, err.Error())
 		return
 	}
 	return err
