@@ -31,16 +31,17 @@ func BenchmarkHandle(b *testing.B) {
 
 	controller := gomock.NewController(b)
 	queue := NewMockQueue(controller)
-	var capturedArgs []byte
+	var capturedArgs [][]byte
 	queue.
 		EXPECT().
 		Produce(gomock.Any()).
 		Do(func(arg []byte) {
-			capturedArgs = arg
-		}).Times(1)
+			capturedArgs = append(capturedArgs, arg)
+		}).MinTimes(1)
 	//queue.EXPECT().Produce(gomock.Any()).Return(nil).Times(1)
 
-	s := NewServer(queue, "topic", 5 * time.Second)
+	opts := NewOptions().InvokeTimeout(5 * time.Second)
+	s := NewServer(queue, opts)
 	handlerType := (*GreeterServer)(nil)
 
 	svc := &server{}
@@ -50,10 +51,10 @@ func BenchmarkHandle(b *testing.B) {
 	}
 
 	request := &HelloRequest{Name: "zhangsan"}
-	invoke := s.Invoke(handlerType, "SayHello", context.Background(), request)
-	fmt.Println(invoke)
+	respose, e := s.Invoke(handlerType, "SayHello", context.Background(), request)
+	fmt.Println(respose)
 	for i := 0; i < b.N; i++ {
-		e = s.Handle(capturedArgs)
+		e = s.Handle(capturedArgs[0])
 		if e != nil {
 			logger.Fatal(e)
 		}
@@ -89,13 +90,13 @@ func Test_defaultServer_parseService(t *testing.T) {
 			fmt.Println(m)
 			assert.Equal(t, name, message.(*HelloRequest).Name)
 			//m.Method.Func.Call([]reflect.Value{context.Background(), message})
-			// invoke grpc method
+			// invokeRequest grpc method
 			invoke := Invoke(&server{}, m.Method.Name, context.Background(), message)
 			fmt.Println(invoke[0])
 
 			marshal, e := proto.Marshal(invoke[0].Interface().(proto.Message))
 			fmt.Println("marshal: ", marshal)
-			fmt.Println("invoke out: ", invoke)
+			fmt.Println("invokeRequest out: ", invoke)
 		}
 	}
 	fmt.Println(methods)
@@ -116,16 +117,17 @@ func Test_defaultServer_Invoke(t *testing.T) {
 		}).Times(1)
 	//queue.EXPECT().Produce(gomock.Any()).Return(nil).Times(1)
 
-	s := NewServer(queue, "topic", 5 * time.Second)
+	opts := NewOptions().InvokeTimeout(5 * time.Second)
+	s := NewServer(queue, opts)
 	handlerType := (*GreeterServer)(nil)
 	//s := &defaultServer{}
 	//s.RegisterService(handlerType, svc)
 	request := &HelloRequest{Name: "zhangsan"}
-	invoke := s.Invoke(handlerType, "SayHello", context.Background(), request)
-	fmt.Println(invoke)
+	response, e := s.Invoke(handlerType, "SayHello", context.Background(), request)
+	fmt.Println(response)
 	fmt.Println(capturedArgs)
 	msg := &mqttpb.QueueMessage{}
-	e := proto.Unmarshal(capturedArgs, msg)
+	e = proto.Unmarshal(capturedArgs, msg)
 	if e != nil {
 		t.Fatalf(e.Error())
 	}
@@ -155,7 +157,8 @@ func Test_defaultServer_RegisterService(t *testing.T) {
 		}).Times(1)
 	//queue.EXPECT().Produce(gomock.Any()).Return(nil).Times(1)
 
-	s := NewServer(queue, "topic", 5 * time.Second)
+	opts := NewOptions().InvokeTimeout(5 * time.Second)
+	s := NewServer(queue, opts)
 	handlerType := (*GreeterServer)(nil)
 
 	svc := &server{}
@@ -165,8 +168,8 @@ func Test_defaultServer_RegisterService(t *testing.T) {
 	}
 
 	request := &HelloRequest{Name: "zhangsan"}
-	invoke := s.Invoke(handlerType, "SayHello", context.Background(), request)
-	fmt.Println(invoke)
+	response, e := s.Invoke(handlerType, "SayHello", context.Background(), request)
+	fmt.Println(response)
 	fmt.Println(capturedArgs)
 	msg := &mqttpb.QueueMessage{}
 	e = proto.Unmarshal(capturedArgs, msg)
@@ -189,16 +192,17 @@ func Test_defaultServer_Handle(t *testing.T) {
 
 	controller := gomock.NewController(t)
 	queue := NewMockQueue(controller)
-	var capturedArgs []byte
+	var capturedArgs [][]byte
 	queue.
 		EXPECT().
 		Produce(gomock.Any()).
 		Do(func(arg []byte) {
-			capturedArgs = arg
-		}).Times(1)
+			capturedArgs = append(capturedArgs, arg)
+		}).MinTimes(1)
 	//queue.EXPECT().Produce(gomock.Any()).Return(nil).Times(1)
 
-	s := NewServer(queue, "topic", 5 * time.Second)
+	opts := NewOptions().InvokeTimeout(5 * time.Second)
+	s := NewServer(queue, opts)
 	handlerType := (*GreeterServer)(nil)
 
 	svc := &server{}
@@ -208,9 +212,9 @@ func Test_defaultServer_Handle(t *testing.T) {
 	}
 
 	request := &HelloRequest{Name: "zhangsan"}
-	invoke := s.Invoke(handlerType, "SayHello", context.Background(), request)
-	fmt.Println(invoke)
-	e = s.Handle(capturedArgs)
+	response, e := s.Invoke(handlerType, "SayHello", context.Background(), request)
+	fmt.Println(response)
+	e = s.Handle(capturedArgs[0])
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -347,7 +351,7 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// GreeterClient is the client API for Greeter service.
+// GreeterClient is the queue API for Greeter service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type GreeterClient interface {

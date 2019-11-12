@@ -6,12 +6,14 @@ import (
 	"github.com/blademainer/commons/pkg/logger"
 	"github.com/blademainer/commons/pkg/mqtt"
 	"github.com/blademainer/commons/pkg/rpc/queue"
+	mqtt2 "github.com/eclipse/paho.mqtt.golang"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"math"
 	"net/url"
+	"sync"
 	"time"
 )
 
@@ -19,6 +21,12 @@ type mqttQueue struct {
 	topic string
 	qos   byte
 	mqtt.MqttConnection
+	dataCh chan []byte
+}
+
+func (m *mqttQueue) Close() (e error) {
+	m.MqttConnection.Client.Disconnect(0)
+	return nil
 }
 
 func (m *mqttQueue) Produce(payload []byte) error {
@@ -30,7 +38,28 @@ func (m *mqttQueue) Produce(payload []byte) error {
 }
 
 func (m *mqttQueue) Consume() (payload []byte, e error) {
-	panic("implement me")
+	d := <-m.dataCh
+	return d, nil
+}
+
+func NewMqttQueue(uri *url.URL, topic string, duration time.Duration) (*mqttQueue, error) {
+	client, e := mqtt.CreateClientByUri(topic, uri, duration)
+	if e != nil {
+		return nil, e
+	}
+	q := &mqttQueue{}
+	q.Client = client
+	q.topic = topic
+	q.dataCh = make(chan []byte)
+
+	t := q.Client.Subscribe(q.topic, q.qos, func(client mqtt2.Client, message mqtt2.Message) {
+		payload := message.Payload()
+		q.dataCh <- payload
+	})
+	if t.Wait() && t.Error() != nil {
+		return nil, t.Error()
+	}
+	return q, nil
 }
 
 // server is used to implement helloworld.GreeterServer.
@@ -38,33 +67,52 @@ type server struct{}
 
 // SayHello implements helloworld.GreeterServer
 func (s *server) SayHello(ctx context.Context, in *HelloRequest) (*HelloReply, error) {
+	fmt.Println("SayHello: ", in.Name)
 	return &HelloReply{Message: "Hello " + in.Name}, nil
 }
 
 func main() {
-	u, e := url.Parse("tcp://127.0.0.1:8001")
+	logger.SetLevel(logger.LOG_LEVEL_DEBUG)
+	u, e := url.Parse("tcp://127.0.0.1:1883")
 	if e != nil {
 		panic(e)
 	}
-	client, e := mqtt.CreateClientByUri("test", u, 5*time.Second)
-	q := &mqttQueue{}
-	q.Client = client
-	s := queue.NewServer(q, "test", 5*time.Second)
+	q, e := NewMqttQueue(u, "test", 5*time.Second)
+	s := queue.NewServer(q, 5*time.Second)
+
 	handlerType := (*GreeterServer)(nil)
 
 	svc := &server{}
+
+	loopSize := 10000
+	wg := sync.WaitGroup{}
+	wg.Add(loopSize)
+	// client
+	go func() {
+		for i := 0; i < loopSize; i++ {
+			request := &HelloRequest{Name: fmt.Sprintf("zhangsan:%v", i)}
+			e := s.Invoke(handlerType, "SayHello", context.Background(), request)
+			if e != nil {
+				logger.Fatal(e)
+			}
+			wg.Done()
+		}
+	}()
+
+	// server
 	e = s.RegisterService(handlerType, svc)
 	if e != nil {
 		logger.Fatal(e)
 	}
 
-	for i := 0; i < 100; i++ {
-		request := &HelloRequest{Name: fmt.Sprintf("zhangsan:%v", i)}
-		e := s.Invoke(handlerType, "SayHello", context.Background(), request)
-		if e != nil {
-			logger.Fatal(e)
-		}
-	}
+	go func() {
+		wg.Wait()
+		e := s.Stop()
+		fmt.Println(e)
+	}()
+
+	e = s.Serve()
+	panic(e)
 }
 
 // Reference imports to suppress errors if they are not otherwise used.

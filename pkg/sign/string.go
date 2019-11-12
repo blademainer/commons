@@ -33,9 +33,9 @@ l:
 		field := instance.Field(k)
 		tag := field.Tag(fieldTag)
 		name, tagOptions := parseTag(tag)
-		logger.Log.Infof("field: %v with options: %v", field, tagOptions)
+		logger.Infof("field: %v with options: %v", field, tagOptions)
 		if tagOptions.Contains("-") || name == "-" {
-			logger.Log.Infof("ignore field: %v by tag: %v", k, name)
+			logger.Infof("ignore field: %v by tag: %v", k, name)
 			continue
 		}
 		fieldTagNameAndFieldNameMap[name] = field.Name()

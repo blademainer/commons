@@ -3,31 +3,57 @@ package queue
 import (
 	"context"
 	"fmt"
+	"github.com/blademainer/commons/pkg/generator"
 	"github.com/blademainer/commons/pkg/logger"
 	mqttpb "github.com/blademainer/commons/pkg/rpc/queue/proto"
 	"github.com/golang/protobuf/proto"
 	"reflect"
 	"strings"
-	"time"
 )
 
 type Server interface {
 	// prefix mqtt listen to
-	SetTopic(topic string)
 	RegisterService(handlerType interface{}, service interface{}) error
 	//RegisterServiceFn(f RegisterFunc)
 	Serve() error
-	Invoke(handlerType interface{}, method string, ctx context.Context, message proto.Message) error // invoke grpc client
-	Handle(payload []byte) (e error)                                                                 // handle queue's message
+	Invoke(handlerType interface{}, method string, ctx context.Context, message proto.Message) (proto.Message, error) // invokeRequest grpc queue
+	Handle(payload []byte) (e error)                                                                                  // handle queue's message by server
+	Stop() (e error)
 }
 
+type AwaitResponseFunc = func(message *mqttpb.QueueMessage, e error)
+
 type defaultServer struct {
-	client        Queue
-	topic         string
+	*generator.Generator
+	*Options
+
+	doneCh chan struct{}
+
+	queue         Queue
 	serviceMap    map[interface{}]serviceAndMethod // [implements of ServerInterface] -> (methodName -> method)
 	cmdMap        map[string]*grpcMethod           // cmd -> ServerInterface's methods
 	handleTypeMap map[interface{}]*grpcMethods     // ServerInterface's methods
-	invokeTimeout time.Duration
+
+	keeper     *awaitKeeper
+}
+
+func NewServer(client Queue, options *Options) Server {
+	server := &defaultServer{}
+	server.serviceMap = make(map[interface{}]serviceAndMethod, 0)
+	server.cmdMap = make(map[string]*grpcMethod)
+	server.handleTypeMap = make(map[interface{}]*grpcMethods)
+	server.queue = client
+
+	if options.awaitResponse {
+		keeper := newAwaitKeeper(options)
+		server.keeper = keeper
+		server.startKeeper()
+	}
+	server.Options = options
+	cluster := ""
+	g := generator.New(&cluster, 1000000)
+	server.Generator = g
+	return server
 }
 
 type serviceAndMethod struct {
@@ -35,30 +61,40 @@ type serviceAndMethod struct {
 	method  map[string]reflect.Value
 }
 
+func (s *defaultServer) Stop() (e error) {
+	s.doneCh <- struct{}{}
+	close(s.doneCh)
+	return nil
+}
+
 func (s *defaultServer) Produce(payload []byte) error {
-	e := s.client.Produce(payload)
+	e := s.queue.Produce(payload)
 	return e
 }
 
 func (s *defaultServer) Serve() error {
-	//TODO start server
-
+	s.startConsumeQueue()
 	return nil
 }
 
-func (s *defaultServer) SetTopic(topic string) {
-	s.topic = topic
-}
-
-func NewServer(client Queue, topic string, invokeTimeout time.Duration) Server {
-	server := &defaultServer{}
-	server.serviceMap = make(map[interface{}]serviceAndMethod, 0)
-	server.cmdMap = make(map[string]*grpcMethod)
-	server.handleTypeMap = make(map[interface{}]*grpcMethods)
-	server.client = client
-	server.SetTopic(topic)
-	server.invokeTimeout = invokeTimeout
-	return server
+func (s *defaultServer) startConsumeQueue() {
+	for {
+		select {
+		case <-s.doneCh:
+			return
+		default:
+			payload, e := s.queue.Consume()
+			if e != nil {
+				logger.Errorf("failed to consume message: %v", e.Error())
+				continue
+			}
+			e = s.Handle(payload)
+			if e != nil {
+				logger.Errorf("failed to handle message: %v", e.Error())
+				continue
+			}
+		}
+	}
 }
 
 // RegisterService registers a service and its implementation to the gRPC
@@ -94,103 +130,67 @@ func (s *defaultServer) RegisterService(handlerType interface{}, service interfa
 	return nil
 }
 
-
 func (s *defaultServer) Handle(payload []byte) (e error) {
 	if payload == nil {
 		e = fmt.Errorf("payload is nil")
 		return
 	}
+	// unmarshal
 	message := &mqttpb.QueueMessage{}
 	e = proto.Unmarshal(payload, message)
 	if e != nil {
-		return e
-	}
-	cmd := message.Command
-	bytes := message.Message
-	method, exists := s.cmdMap[cmd]
-	if !exists {
-		e = fmt.Errorf("could't found method of cmd: %v please use RegisterService to register your server", cmd)
 		return
 	}
-	ht := method.TypeOfInterface
-	service, exists := s.serviceMap[ht]
-	//service.method.Func.Call([]reflect.Value{context.Background(), message})
-	if !exists {
-		e = fmt.Errorf("could't found service of cmd: %v please use RegisterService to register your type: %v", cmd, ht)
-		return
-	}
-	value := reflect.New(method.In.Elem())
-	grpcMessage := value.Interface().(proto.Message)
-	e = proto.Unmarshal(bytes, grpcMessage)
-	if e != nil {
-		logger.Errorf("failed to unmarshal message to proto: %v", value)
-		return e
-	}
 
-	serviceMethod, exists := service.method[method.Name]
-	if !exists {
-		e = fmt.Errorf("could't found service method of cmd: %v please use RegisterService to register your server", cmd)
-		return
-	}
-	ctx, cancelFunc := context.WithTimeout(context.Background(), s.invokeTimeout)
-	defer cancelFunc()
-	values := invoke(serviceMethod, ctx, grpcMessage)
-	if logger.IsDebugEnabled() {
-		logger.Debugf("succeed to invoke method: %v and returns: %v", serviceMethod, values)
-	}
-	return nil
-}
-
-func invoke(method reflect.Value, args ...interface{}) []reflect.Value {
-	inputs := make([]reflect.Value, len(args))
-	for i, _ := range args {
-		inputs[i] = reflect.ValueOf(args[i])
-	}
-	out := method.Call(inputs)
-	return out
-}
-
-func (s *defaultServer) Invoke(handlerType interface{}, method string, ctx context.Context, message proto.Message) error {
-	if handlerType == nil {
-		e := fmt.Errorf("handlerType is nil")
-		return e
-	}
-	found, exists := s.handleTypeMap[handlerType]
-	ht := reflect.TypeOf(handlerType).Elem()
-	if !exists {
-		grpcMethods, e := parseService(ht)
-		logger.Infof("parse service: %v to grpcMethods: %v", ht, grpcMethods)
+	switch message.Type {
+	case mqttpb.MessageType_REQUEST:
+		responseData, e := s.handleRequest(message)
 		if e != nil {
 			return e
+		} else if responseData == nil {
+			return nil
 		}
-		found = grpcMethods
-	}
-	m, methodExists := found.MethodMap[method]
-	if !methodExists {
-		e := fmt.Errorf("could'nt found method: %v on type: %v. exists methods: %v", method, ht, found.MethodMap)
+		e = s.queue.Produce(responseData)
+		if e != nil {
+			logger.Errorf("failed to produce message, error: %v", e.Error())
+		}
 		return e
+	case mqttpb.MessageType_RESPONSE:
+		return s.handleResponse(message)
+	default:
+		logger.Errorf("unknown message type: %v", message.Type)
+		return
 	}
-	bytes, e := proto.Marshal(message)
+}
+
+func (s *defaultServer) Invoke(handlerType interface{}, method string, ctx context.Context, message proto.Message) (response proto.Message, e error) {
+	if handlerType == nil {
+		e := fmt.Errorf("handlerType is nil")
+		return nil, e
+	}
+	messageId, e := s.invokeRequest(handlerType, method, ctx, message)
 	if e != nil {
-		return e
-	}
-	if logger.IsDebugEnabled() {
-		logger.Debugf("marshaled message: %v to: %v", message, bytes)
-	}
-	cmd := BuildUrl(ht, m.Method)
-	mqttMessage := &mqttpb.QueueMessage{}
-	mqttMessage.Command = cmd
-	mqttMessage.Message = bytes
-	raw, e := proto.Marshal(mqttMessage)
-	if e != nil {
-		return e
+		return
+	} else if messageId == nil {
+		e = fmt.Errorf("handlerType: %v method: %v request: %v no messageId returned", handlerType, method, message)
+		return
 	}
 
-	if logger.IsDebugEnabled() {
-		logger.Debugf("marshaled mqttMessage: %v to: %v", mqttMessage, raw)
+	if !s.Options.awaitResponse {
+		e = &SkipAwaitError{"skip waiting response, because options.awaitResponse is false"}
+		return
 	}
-	e = s.Produce(raw)
-	return e
+
+	// await response
+	queueMessage, e := s.awaitResponse(ctx, *messageId)
+	if e != nil {
+		return
+	} else if queueMessage == nil {
+		e = fmt.Errorf("no response returned")
+		return
+	}
+	response, e = s.parseResponse(handlerType, method, *queueMessage)
+	return
 }
 
 type grpcMethods struct {

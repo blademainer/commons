@@ -72,10 +72,15 @@ func reconnectHandler(keepaliveTime time.Duration) func(client mqtt.Client, e er
 			token := client.Connect()
 			if token.Wait() && token.Error() != nil {
 				logger.Warnf("Reconnection failed : %v", token.Error())
+				return token.Error()
 			} else {
 				logger.Warnf("Reconnection sucessful")
+				e := growthRetryer.Stop()
+				if e != nil{
+					logger.Errorf("failed to stop retryer: %v", e.Error())
+				}
 			}
-			return token.Error()
+			return nil
 		})
 		if err != nil {
 			logger.Errorf("failed to reconnect: %v", err.Error())

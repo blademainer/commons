@@ -44,9 +44,17 @@ func (m *QueueMessage) Validate() error {
 		return nil
 	}
 
+	// no validation rules for MessageId
+
+	// no validation rules for Type
+
 	// no validation rules for Command
 
 	// no validation rules for Message
+
+	// no validation rules for Success
+
+	// no validation rules for Error
 
 	return nil
 }
