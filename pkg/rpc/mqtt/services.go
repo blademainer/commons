@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/blademainer/commons/pkg/logger"
+	mqttpb "github.com/blademainer/commons/pkg/rpc/mqtt/proto"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/golang/protobuf/proto"
 	"reflect"
@@ -16,11 +17,10 @@ type Server interface {
 	RegisterService(handlerType interface{}, service interface{}) error
 	//RegisterServiceFn(f RegisterFunc)
 	Serve() error
-	Publish(payload []byte)
+	Publish(payload []byte) error
 }
 
 type mqttRpcMessage struct {
-
 }
 
 type defaultServer struct {
@@ -31,8 +31,13 @@ type defaultServer struct {
 	handleTypeMap map[interface{}]*grpcMethods
 }
 
-func (s *defaultServer) Publish(payload []byte) {
-	s.client.Publish(s.topic, 1, true, payload)
+func (s *defaultServer) Publish(payload []byte) error {
+	w := s.client.Publish(s.topic, 1, true, payload)
+	if w.Wait() && w.Error() != nil {
+		e := fmt.Errorf("failed to push message, error: %v", w.Error())
+		return e
+	}
+	return nil
 }
 
 func (s *defaultServer) Serve() error {
@@ -108,10 +113,20 @@ func (s *defaultServer) Invoke(handlerType interface{}, method string, ctx conte
 		e := fmt.Errorf("could'nt found method: %v on type: %v", method, handlerType)
 		return e
 	}
-	url := BuildUrl(ht, m.Method)
-	s.client.Publish()
-	fmt.Println(found)
-	return nil
+	bytes, e := proto.Marshal(message)
+	if e != nil {
+		return e
+	}
+	cmd := BuildUrl(ht, m.Method)
+	mqttMessage := &mqttpb.MqttMessage{}
+	mqttMessage.Command = cmd
+	mqttMessage.Message = bytes
+	raw, e := proto.Marshal(mqttMessage)
+	if e != nil {
+		return e
+	}
+	e = s.Publish(raw)
+	return e
 }
 
 type grpcMethods struct {
