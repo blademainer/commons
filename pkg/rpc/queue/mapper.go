@@ -1,4 +1,4 @@
-package mqtt
+package queue
 
 import (
 	"github.com/blademainer/commons/pkg/logger"

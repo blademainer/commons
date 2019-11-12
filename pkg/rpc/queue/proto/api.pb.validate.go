@@ -36,10 +36,10 @@ var (
 // define the regex for a UUID once up-front
 var _api_uuidPattern = regexp.MustCompile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
-// Validate checks the field values on MqttMessage with the rules defined in
+// Validate checks the field values on QueueMessage with the rules defined in
 // the proto definition for this message. If any rules are violated, an error
 // is returned.
-func (m *MqttMessage) Validate() error {
+func (m *QueueMessage) Validate() error {
 	if m == nil {
 		return nil
 	}
@@ -51,9 +51,9 @@ func (m *MqttMessage) Validate() error {
 	return nil
 }
 
-// MqttMessageValidationError is the validation error returned by
-// MqttMessage.Validate if the designated constraints aren't met.
-type MqttMessageValidationError struct {
+// QueueMessageValidationError is the validation error returned by
+// QueueMessage.Validate if the designated constraints aren't met.
+type QueueMessageValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -61,22 +61,22 @@ type MqttMessageValidationError struct {
 }
 
 // Field function returns field value.
-func (e MqttMessageValidationError) Field() string { return e.field }
+func (e QueueMessageValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e MqttMessageValidationError) Reason() string { return e.reason }
+func (e QueueMessageValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e MqttMessageValidationError) Cause() error { return e.cause }
+func (e QueueMessageValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e MqttMessageValidationError) Key() bool { return e.key }
+func (e QueueMessageValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e MqttMessageValidationError) ErrorName() string { return "MqttMessageValidationError" }
+func (e QueueMessageValidationError) ErrorName() string { return "QueueMessageValidationError" }
 
 // Error satisfies the builtin error interface
-func (e MqttMessageValidationError) Error() string {
+func (e QueueMessageValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -88,14 +88,14 @@ func (e MqttMessageValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sMqttMessage.%s: %s%s",
+		"invalid %sQueueMessage.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = MqttMessageValidationError{}
+var _ error = QueueMessageValidationError{}
 
 var _ interface {
 	Field() string
@@ -103,4 +103,4 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = MqttMessageValidationError{}
+} = QueueMessageValidationError{}

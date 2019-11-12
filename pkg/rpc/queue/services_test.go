@@ -1,8 +1,13 @@
-package mqtt
+package queue
 
 import (
 	"context"
 	"fmt"
+	"github.com/blademainer/commons/pkg/logger"
+	mqttpb "github.com/blademainer/commons/pkg/rpc/queue/proto"
+	"time"
+
+	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -62,14 +67,120 @@ func Test_defaultServer_parseService(t *testing.T) {
 	fmt.Println(methods)
 }
 
-func Test_defaultServer_RegisterService(t *testing.T) {
-	s := &defaultServer{}
+func Test_defaultServer_Invoke(t *testing.T) {
+	logger.SetLevel(logger.LOG_LEVEL_DEBUG)
+
+	controller := gomock.NewController(t)
+	queue := NewMockQueue(controller)
+	var capturedArgs []byte
+
+	queue.
+		EXPECT().
+		Produce(gomock.Any()).
+		Do(func(arg []byte) {
+			capturedArgs = arg
+		}).Times(1)
+	//queue.EXPECT().Produce(gomock.Any()).Return(nil).Times(1)
+
+	s := NewServer(queue, "topic", 5 * time.Second)
 	handlerType := (*GreeterServer)(nil)
-	//svc := &server{}
+	//s := &defaultServer{}
 	//s.RegisterService(handlerType, svc)
 	request := &HelloRequest{Name: "zhangsan"}
 	invoke := s.Invoke(handlerType, "SayHello", context.Background(), request)
 	fmt.Println(invoke)
+	fmt.Println(capturedArgs)
+	msg := &mqttpb.QueueMessage{}
+	e := proto.Unmarshal(capturedArgs, msg)
+	if e != nil {
+		t.Fatalf(e.Error())
+	}
+	fmt.Println("marshal to msg: ", msg)
+	assert.Equal(t, msg.Command, "/queue.GreeterServer/SayHello")
+
+	helloRequest := &HelloRequest{}
+	bytes := msg.Message
+	e = proto.Unmarshal(bytes, helloRequest)
+	if e != nil {
+		t.Fatalf(e.Error())
+	}
+	assert.Equal(t, helloRequest.Name, request.Name)
+}
+
+func Test_defaultServer_RegisterService(t *testing.T) {
+	logger.SetLevel(logger.LOG_LEVEL_DEBUG)
+
+	controller := gomock.NewController(t)
+	queue := NewMockQueue(controller)
+	var capturedArgs []byte
+	queue.
+		EXPECT().
+		Produce(gomock.Any()).
+		Do(func(arg []byte) {
+			capturedArgs = arg
+		}).Times(1)
+	//queue.EXPECT().Produce(gomock.Any()).Return(nil).Times(1)
+
+	s := NewServer(queue, "topic", 5 * time.Second)
+	handlerType := (*GreeterServer)(nil)
+
+	svc := &server{}
+	e := s.RegisterService(handlerType, svc)
+	if e != nil {
+		t.Fatal(e)
+	}
+
+	request := &HelloRequest{Name: "zhangsan"}
+	invoke := s.Invoke(handlerType, "SayHello", context.Background(), request)
+	fmt.Println(invoke)
+	fmt.Println(capturedArgs)
+	msg := &mqttpb.QueueMessage{}
+	e = proto.Unmarshal(capturedArgs, msg)
+	if e != nil {
+		t.Fatalf(e.Error())
+	}
+	fmt.Println("marshal to msg: ", msg)
+	assert.Equal(t, msg.Command, "/queue.GreeterServer/SayHello")
+
+	helloRequest := &HelloRequest{}
+	bytes := msg.Message
+	e = proto.Unmarshal(bytes, helloRequest)
+	if e != nil {
+		t.Fatalf(e.Error())
+	}
+	assert.Equal(t, helloRequest.Name, request.Name)
+}
+func Test_defaultServer_Handle(t *testing.T) {
+	logger.SetLevel(logger.LOG_LEVEL_DEBUG)
+
+	controller := gomock.NewController(t)
+	queue := NewMockQueue(controller)
+	var capturedArgs []byte
+	queue.
+		EXPECT().
+		Produce(gomock.Any()).
+		Do(func(arg []byte) {
+			capturedArgs = arg
+		}).Times(1)
+	//queue.EXPECT().Produce(gomock.Any()).Return(nil).Times(1)
+
+	s := NewServer(queue, "topic", 5 * time.Second)
+	handlerType := (*GreeterServer)(nil)
+
+	svc := &server{}
+	e := s.RegisterService(handlerType, svc)
+	if e != nil {
+		t.Fatal(e)
+	}
+
+	request := &HelloRequest{Name: "zhangsan"}
+	invoke := s.Invoke(handlerType, "SayHello", context.Background(), request)
+	fmt.Println(invoke)
+	e = s.Handle(capturedArgs)
+	if e != nil {
+		t.Fatal(e)
+	}
+
 }
 
 func Invoke(any interface{}, name string, args ...interface{}) []reflect.Value {
