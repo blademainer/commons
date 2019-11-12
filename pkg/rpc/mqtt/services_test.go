@@ -65,10 +65,11 @@ func Test_defaultServer_parseService(t *testing.T) {
 func Test_defaultServer_RegisterService(t *testing.T) {
 	s := &defaultServer{}
 	handlerType := (*GreeterServer)(nil)
-	svc := &server{}
-	s.RegisterService(handlerType, svc)
+	//svc := &server{}
+	//s.RegisterService(handlerType, svc)
 	request := &HelloRequest{Name: "zhangsan"}
-	s.Invoke(handlerType, "SayHello", context.Background(), request)
+	invoke := s.Invoke(handlerType, "SayHello", context.Background(), request)
+	fmt.Println(invoke)
 }
 
 func Invoke(any interface{}, name string, args ...interface{}) []reflect.Value {

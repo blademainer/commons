@@ -19,6 +19,10 @@ type Server interface {
 	Publish(payload []byte)
 }
 
+type mqttRpcMessage struct {
+
+}
+
 type defaultServer struct {
 	client        mqtt.Client
 	topic         string
@@ -91,14 +95,21 @@ func (s *defaultServer) Invoke(handlerType interface{}, method string, ctx conte
 		return e
 	}
 	found, exists := s.handleTypeMap[handlerType]
+	ht := reflect.TypeOf(handlerType).Elem()
 	if !exists {
-		ht := reflect.TypeOf(handlerType).Elem()
 		grpcMethods, e := parseService(ht)
 		if e != nil {
 			return e
 		}
 		found = grpcMethods
 	}
+	m, methodExists := found.MethodMap[method]
+	if !methodExists {
+		e := fmt.Errorf("could'nt found method: %v on type: %v", method, handlerType)
+		return e
+	}
+	url := BuildUrl(ht, m.Method)
+	s.client.Publish()
 	fmt.Println(found)
 	return nil
 }
