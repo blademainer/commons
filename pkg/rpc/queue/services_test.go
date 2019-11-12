@@ -26,6 +26,40 @@ func (s *server) SayHello(ctx context.Context, in *HelloRequest) (*HelloReply, e
 	return &HelloReply{Message: "Hello " + in.Name}, nil
 }
 
+func BenchmarkHandle(b *testing.B) {
+	logger.SetLevel(logger.LOG_LEVEL_INFO)
+
+	controller := gomock.NewController(b)
+	queue := NewMockQueue(controller)
+	var capturedArgs []byte
+	queue.
+		EXPECT().
+		Produce(gomock.Any()).
+		Do(func(arg []byte) {
+			capturedArgs = arg
+		}).Times(1)
+	//queue.EXPECT().Produce(gomock.Any()).Return(nil).Times(1)
+
+	s := NewServer(queue, "topic", 5 * time.Second)
+	handlerType := (*GreeterServer)(nil)
+
+	svc := &server{}
+	e := s.RegisterService(handlerType, svc)
+	if e != nil {
+		logger.Fatal(e)
+	}
+
+	request := &HelloRequest{Name: "zhangsan"}
+	invoke := s.Invoke(handlerType, "SayHello", context.Background(), request)
+	fmt.Println(invoke)
+	for i := 0; i < b.N; i++ {
+		e = s.Handle(capturedArgs)
+		if e != nil {
+			logger.Fatal(e)
+		}
+	}
+}
+
 func Test_defaultServer_parseService(t *testing.T) {
 	handlerType := (*GreeterServer)(nil)
 	ht := reflect.TypeOf(handlerType).Elem()

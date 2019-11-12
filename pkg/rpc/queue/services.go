@@ -50,13 +50,13 @@ func (s *defaultServer) SetTopic(topic string) {
 	s.topic = topic
 }
 
-func NewServer(client Queue, prefix string, invokeTimeout time.Duration) Server {
+func NewServer(client Queue, topic string, invokeTimeout time.Duration) Server {
 	server := &defaultServer{}
 	server.serviceMap = make(map[interface{}]serviceAndMethod, 0)
 	server.cmdMap = make(map[string]*grpcMethod)
 	server.handleTypeMap = make(map[interface{}]*grpcMethods)
 	server.client = client
-	server.SetTopic(prefix)
+	server.SetTopic(topic)
 	server.invokeTimeout = invokeTimeout
 	return server
 }
@@ -94,10 +94,6 @@ func (s *defaultServer) RegisterService(handlerType interface{}, service interfa
 	return nil
 }
 
-// parse cmd -> server.method and cmd -> service.method
-func (s *defaultServer) parseCmdAndServiceMethod() {
-
-}
 
 func (s *defaultServer) Handle(payload []byte) (e error) {
 	if payload == nil {
