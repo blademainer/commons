@@ -78,7 +78,8 @@ func main() {
 		panic(e)
 	}
 	q, e := NewMqttQueue(u, "test", 5*time.Second)
-	s := queue.NewServer(q, 5*time.Second)
+	opts := queue.NewOptions().InvokeTimeout(5 * time.Second).AwaitResponse(true)
+	s := queue.NewServer(q, opts)
 
 	handlerType := (*GreeterServer)(nil)
 
@@ -91,11 +92,14 @@ func main() {
 	go func() {
 		for i := 0; i < loopSize; i++ {
 			request := &HelloRequest{Name: fmt.Sprintf("zhangsan:%v", i)}
-			e := s.Invoke(handlerType, "SayHello", context.Background(), request)
+			timeout, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
+			m, e := s.Invoke(handlerType, "SayHello", timeout, request)
 			if e != nil {
 				logger.Fatal(e)
 			}
+			fmt.Println("response: ", m)
 			wg.Done()
+			cancelFunc()
 		}
 	}()
 
