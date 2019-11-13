@@ -86,6 +86,7 @@ func (keeper *awaitKeeper) handleTtlResponse(entry *awaitEntry) {
 		return
 	}
 	defer delete(keeper.messageIdMap, entry.messageId)
+	defer entry.Close()
 	e := &TimeoutError{message: "timed out"}
 	select {
 	case entry.errorCh <- e:
