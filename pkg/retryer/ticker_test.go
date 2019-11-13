@@ -2,6 +2,7 @@ package retryer
 
 import (
 	"fmt"
+	"github.com/magiconair/properties/assert"
 	"reflect"
 	"sort"
 	"sync"
@@ -87,9 +88,9 @@ func Test_defaultRetryer_subset(t *testing.T) {
 func Test_defaultRetryer_findBestPos(t *testing.T) {
 
 	target0, e := time.Parse(time.RFC3339, "2006-01-02T15:04:05+08:00")
-	target, e := time.Parse(time.RFC3339, "2006-01-02T15:04:15+08:00")
-	target1, e := time.Parse(time.RFC3339, "2006-01-02T15:04:25+08:00")
-	target2, e := time.Parse(time.RFC3339, "2006-01-02T15:04:35+08:00")
+	target1, e := time.Parse(time.RFC3339, "2006-01-02T15:04:15+08:00")
+	target2, e := time.Parse(time.RFC3339, "2006-01-02T15:04:25+08:00")
+	target3, e := time.Parse(time.RFC3339, "2006-01-02T15:04:35+08:00")
 
 	targetT, e := time.Parse(time.RFC3339, "2006-01-02T15:04:30+08:00")
 	targetFirst, e := time.Parse(time.RFC3339, "2006-01-02T15:04:10+08:00")
@@ -102,9 +103,9 @@ func Test_defaultRetryer_findBestPos(t *testing.T) {
 	retryer := &defaultRetryer{
 		retryEntries: []*retryEntry{
 			{nextInvokeTime: target0},
-			{nextInvokeTime: target},
 			{nextInvokeTime: target1},
 			{nextInvokeTime: target2},
+			{nextInvokeTime: target3},
 		},
 	}
 
@@ -125,25 +126,25 @@ func Test_defaultRetryer_findBestPos(t *testing.T) {
 			name:   "first",
 			fields: retryer,
 			args:   args{targetFirst},
-			want:   0,
+			want:   1,
 		},
 		{
 			name:   "third",
 			fields: retryer,
-			args:   args{target1},
+			args:   args{target2},
 			want:   2,
 		},
 		{
 			name:   "before",
 			fields: retryer,
 			args:   args{targetT},
-			want:   2,
+			want:   3,
 		},
 		{
 			name:   "none",
 			fields: retryer,
 			args:   args{targetNone},
-			want:   len(retryer.retryEntries),
+			want:   0,
 		},
 	}
 	for _, tt := range tests {
@@ -156,14 +157,16 @@ func Test_defaultRetryer_findBestPos(t *testing.T) {
 	}
 }
 
-func find(){
-
+func search(arr []int, want int) int {
+	search := sort.Search(len(arr), func(i int) bool {
+		return arr[i] >= want
+	})
+	return search
 }
 
 func Test_search(t *testing.T) {
 	arr := []int{0, 1, 3, 5, 9, 11}
-	search := sort.Search(len(arr), func(i int) bool {
-		return arr[i] >= 5
-	})
-	fmt.Println(search)
+	assert.Equal(t, search(arr, 5), 3)
+	assert.Equal(t, search(arr, 6), 4)
+	assert.Equal(t, search(arr, 12), len(arr))
 }

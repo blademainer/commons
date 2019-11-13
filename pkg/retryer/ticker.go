@@ -49,14 +49,9 @@ func (d *defaultRetryer) findBestPos(now time.Time) int {
 	d.RLock()
 	defer d.RUnlock()
 	length := len(d.retryEntries)
+	nano := now.UnixNano()
 	result := sort.Search(length, func(i int) bool {
-		//fmt.Printf("i: %d now: %v i.time: %v\n", i, now.Format(time.RFC3339), d.retryEntries[i].nextInvokeTime.Format(time.RFC3339))
-		//if i == length-1 {
-		//	return d.retryEntries[i].nextInvokeTime.Before(now) || d.retryEntries[i].nextInvokeTime.Equal(now)
-		//}
-		//  a[i] <= now < a[i+1]
-		//fmt.Println(i)
-		return d.retryEntries[i].nextInvokeTime.After(now) || d.retryEntries[i].nextInvokeTime.Equal(now)
+		return d.retryEntries[i].nextInvokeTime.UnixNano() >= nano
 	})
 	return result
 }

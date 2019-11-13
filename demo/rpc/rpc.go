@@ -68,6 +68,7 @@ type server struct{}
 // SayHello implements helloworld.GreeterServer
 func (s *server) SayHello(ctx context.Context, in *HelloRequest) (*HelloReply, error) {
 	fmt.Println("SayHello: ", in.Name)
+	time.Sleep(4 * time.Second)
 	return &HelloReply{Message: "Hello " + in.Name}, nil
 }
 
@@ -86,7 +87,7 @@ func main() {
 
 	svc := &server{}
 
-	loopSize := 10000
+	loopSize := 100
 	wg := sync.WaitGroup{}
 	wg.Add(loopSize)
 	// client

@@ -1,7 +1,6 @@
 package queue
 
 import (
-	"fmt"
 	"github.com/blademainer/commons/pkg/logger"
 	"sort"
 	"time"
@@ -57,37 +56,11 @@ func (keeper *awaitKeeper) findBestPos(now time.Time) int {
 	keeper.RLock()
 	defer keeper.RUnlock()
 	length := len(keeper.ttlEntries)
-	i := sort.Search(length, func(i int) bool {
-		if i == length-1 && keeper.ttlEntries[i].ttl.Before(now) {
-			return true
-		}
-		return (keeper.ttlEntries[i].ttl.Before(now) || keeper.ttlEntries[i].ttl.Equal(now)) && keeper.ttlEntries[i+1].ttl.After(now)
+	nano := now.UnixNano()
+	result := sort.Search(length, func(i int) bool {
+		return keeper.ttlEntries[i].ttl.UnixNano() >= nano
 	})
-	return i
-}
-
-func foundBestPos(arr []int, search int) int {
-	right := len(arr) - 1
-	mid := right / 2
-	left := 0
-	for mid >= left && mid < right {
-		if search == arr[mid] || (arr[mid] <= search && search < arr[mid+1]) {
-			return mid
-		} else if search < arr[mid] {
-			mid = (mid + left) / 2
-		} else {
-			mid = (mid + right) / 2
-		}
-		fmt.Println(mid)
-		if mid == 0 {
-			if arr[mid] == search {
-				return 0
-			} else {
-				return -1
-			}
-		}
-	}
-	return -1
+	return result
 }
 
 func (keeper *awaitKeeper) subset(subIndex int) []*awaitEntry {
