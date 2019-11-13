@@ -1,0 +1,19 @@
+syntax = 'proto3';
+
+package proto.queue;
+
+option go_package = "proto";
+
+message QueueMessage {
+    string message_id = 3;
+    MessageType type = 4;
+    string command = 1;
+    bytes message = 2;
+    bool success = 5;
+    string error = 6;
+}
+
+enum MessageType {
+    REQUEST = 0;
+    RESPONSE = 1;
+}

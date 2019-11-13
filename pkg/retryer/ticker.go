@@ -3,6 +3,7 @@ package retryer
 import (
 	"github.com/blademainer/commons/pkg/logger"
 	recover2 "github.com/blademainer/commons/pkg/recover"
+	"sort"
 	"time"
 )
 
@@ -26,17 +27,12 @@ func (d *defaultRetryer) doTick(now time.Time) {
 		logger.Debugf("entries: %v", d.retryEntries)
 	}
 
-	subIndex := -1
-	for i, e := range d.retryEntries {
-		if e.nextInvokeTime.Before(now) {
-			subIndex = i + 1
-		}
-	}
+	subIndex := d.findBestPos(now)
 
 	subset := d.subset(subIndex)
 	if subset == nil {
 		if logger.IsDebugEnabled() {
-			logger.Debugf("found null subset! subIndex: %v entries: %v", subIndex, d.retryEntries)
+			logger.Debugf("null subset, subIndex: %v entries: %v", subIndex, d.retryEntries)
 		}
 		return
 	}
@@ -47,6 +43,17 @@ func (d *defaultRetryer) doTick(now time.Time) {
 	for _, e := range subset {
 		go d.doRetry(e)
 	}
+}
+
+func (d *defaultRetryer) findBestPos(now time.Time) int {
+	d.RLock()
+	defer d.RUnlock()
+	length := len(d.retryEntries)
+	nano := now.UnixNano()
+	result := sort.Search(length, func(i int) bool {
+		return d.retryEntries[i].nextInvokeTime.UnixNano() >= nano
+	})
+	return result
 }
 
 func (d *defaultRetryer) subset(subIndex int) []*retryEntry {
