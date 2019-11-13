@@ -95,13 +95,34 @@ func (keeper *awaitKeeper) handleAwaitResponse(message *mqttpb.QueueMessage) {
 	if !found {
 		return
 	}
-	defer delete(keeper.messageIdMap, entry.messageId)
+	keeper.Lock()
+	defer keeper.Unlock()
+	delete(keeper.messageIdMap, entry.messageId)
 	select {
 	case entry.messageCh <- message:
 	default:
-		logger.Infof("failed to push to chan, message: %v entry: %c", message, entry)
+		logger.Infof("failed to push to chan, message: %v entry: %v", message, entry)
 	}
 }
+
+//func (keeper *awaitKeeper) deleteTtlEntry(entry *awaitEntry) {
+//	delete(keeper.messageIdMap, entry.messageId)
+//	for i, e := range keeper.ttlEntries {
+//		if e.messageId == entry.messageId {
+//			keeper.ttlEntries[i] = nil
+//			deleteElement(keeper.ttlEntries, i)
+//		}
+//	}
+//}
+//
+//func deleteElement(entries []*awaitEntry, index int) {
+//	i := 2
+//
+//	// Remove the element at index i from a.
+//	entries[i] = entries[len(entries)-1] // Copy last element to index i.
+//	entries[len(entries)-1] = nil        // Erase last element (write zero value).
+//	entries = entries[:len(entries)-1]   // Truncate slice.
+//}
 
 func (keeper *awaitKeeper) insertTtlEntry(entry *awaitEntry) {
 	keeper.Lock()

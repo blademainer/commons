@@ -1,7 +1,9 @@
 package queue
 
 import (
+	"fmt"
 	"github.com/blademainer/commons/pkg/logger"
+	"sort"
 	"time"
 )
 
@@ -26,17 +28,18 @@ func (keeper *awaitKeeper) doTick(now time.Time) {
 		logger.Debugf("entries: %v", keeper.ttlEntries)
 	}
 
-	subIndex := -1
-	for i, e := range keeper.ttlEntries {
-		if e.ttl.Before(now) {
-			subIndex = i + 1
-		}
-	}
+	subIndex := keeper.findBestPos(now)
+
+	//for i, e := range keeper.ttlEntries {
+	//	if e.ttl.Before(now) {
+	//		subIndex = i + 1
+	//	}
+	//}
 
 	subset := keeper.subset(subIndex)
 	if subset == nil {
 		if logger.IsDebugEnabled() {
-			logger.Debugf("found null subset! subIndex: %v entries: %v", subIndex, keeper.ttlEntries)
+			logger.Debugf("null subset. subIndex: %v entries: %v", subIndex, keeper.ttlEntries)
 		}
 		return
 	}
@@ -48,6 +51,43 @@ func (keeper *awaitKeeper) doTick(now time.Time) {
 	for _, s := range subset {
 		keeper.handleTtlResponse(s)
 	}
+}
+
+func (keeper *awaitKeeper) findBestPos(now time.Time) int {
+	keeper.RLock()
+	defer keeper.RUnlock()
+	length := len(keeper.ttlEntries)
+	i := sort.Search(length, func(i int) bool {
+		if i == length-1 && keeper.ttlEntries[i].ttl.Before(now) {
+			return true
+		}
+		return (keeper.ttlEntries[i].ttl.Before(now) || keeper.ttlEntries[i].ttl.Equal(now)) && keeper.ttlEntries[i+1].ttl.After(now)
+	})
+	return i
+}
+
+func foundBestPos(arr []int, search int) int {
+	right := len(arr) - 1
+	mid := right / 2
+	left := 0
+	for mid >= left && mid < right {
+		if search == arr[mid] || (arr[mid] <= search && search < arr[mid+1]) {
+			return mid
+		} else if search < arr[mid] {
+			mid = (mid + left) / 2
+		} else {
+			mid = (mid + right) / 2
+		}
+		fmt.Println(mid)
+		if mid == 0 {
+			if arr[mid] == search {
+				return 0
+			} else {
+				return -1
+			}
+		}
+	}
+	return -1
 }
 
 func (keeper *awaitKeeper) subset(subIndex int) []*awaitEntry {

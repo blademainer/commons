@@ -73,6 +73,7 @@ func (s *server) SayHello(ctx context.Context, in *HelloRequest) (*HelloReply, e
 
 func main() {
 	logger.SetLevel(logger.LOG_LEVEL_DEBUG)
+	//logger.SetLevel(logger.LOG_LEVEL_INFO)
 	u, e := url.Parse("tcp://127.0.0.1:1883")
 	if e != nil {
 		panic(e)
