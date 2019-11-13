@@ -98,6 +98,8 @@ func (s *defaultServer) invokeRequest(handlerType interface{}, method string, ct
 	found, exists := s.handleTypeMap[handlerType]
 	ht := reflect.TypeOf(handlerType).Elem()
 	if !exists {
+		s.Lock()
+		defer s.Unlock()
 		grpcMethods, e := parseService(ht)
 		logger.Infof("parse service: %v to grpcMethods: %v", ht, grpcMethods)
 		if e != nil {

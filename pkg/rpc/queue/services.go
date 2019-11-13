@@ -9,6 +9,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"reflect"
 	"strings"
+	"sync"
 )
 
 type Server interface {
@@ -24,6 +25,7 @@ type Server interface {
 type AwaitResponseFunc = func(message *mqttpb.QueueMessage, e error)
 
 type defaultServer struct {
+	sync.Mutex
 	*generator.Generator
 	*Options
 
@@ -34,7 +36,7 @@ type defaultServer struct {
 	cmdMap        map[string]*grpcMethod           // cmd -> ServerInterface's methods
 	handleTypeMap map[interface{}]*grpcMethods     // ServerInterface's methods
 
-	keeper     *awaitKeeper
+	keeper *awaitKeeper
 }
 
 func NewServer(client Queue, options *Options) Server {
@@ -111,6 +113,8 @@ func (s *defaultServer) RegisterService(handlerType interface{}, service interfa
 	//reflect.TypeOf(service).MethodByName()
 	//s.server.RegisterService(mapper.Desc, service)
 	logger.Infof("register service: %v type: %v", st, ht)
+	s.Lock()
+	defer s.Unlock()
 	methods, err := parseService(ht)
 	if err != nil {
 		return err
