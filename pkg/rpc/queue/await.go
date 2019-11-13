@@ -27,6 +27,11 @@ type awaitEntry struct {
 	ttl          time.Time
 }
 
+func (entry *awaitEntry) Close() {
+	close(entry.errorCh)
+	close(entry.messageCh)
+}
+
 func (keeper *awaitKeeper) Len() int {
 	return len(keeper.ttlEntries)
 }
@@ -97,6 +102,7 @@ func (keeper *awaitKeeper) handleAwaitResponse(message *mqttpb.QueueMessage) {
 	}
 	keeper.Lock()
 	defer keeper.Unlock()
+	defer entry.Close()
 	delete(keeper.messageIdMap, entry.messageId)
 	select {
 	case entry.messageCh <- message:
