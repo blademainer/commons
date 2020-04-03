@@ -1,7 +1,7 @@
 package main
 
 import "fmt"
-import "github.com/blademainer/commons/pkg/panic"
+import "github.com/blademainer/commons/pkg/recover"
 
 func badFunc() {
 	defer recover.Recover()

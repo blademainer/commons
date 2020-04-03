@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 go build -o bin/panic ./demo/panic
-go test ./pkg/pool/
-go test ./pkg/field/
-go test ./pkg/io/
-go test .
+
+find . -name "*.go" | while read file; do echo "${file%/*}"; done | sort | uniq | while read f; do
+  echo "test: $f"
+  go test "$f";
+done
