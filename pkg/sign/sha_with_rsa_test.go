@@ -4,7 +4,7 @@ import (
 	"crypto"
 	"encoding/base64"
 	"fmt"
-	"github.com/pjoc-team/base-service/pkg/util"
+	"github.com/blademainer/commons/pkg/util"
 	"testing"
 )
 
