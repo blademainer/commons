@@ -2,7 +2,7 @@
 // Source: queue.go
 
 // Package queue is a generated GoMock package.
-package queue
+package mock
 
 import (
 	gomock "github.com/golang/mock/gomock"

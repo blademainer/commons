@@ -12,11 +12,12 @@ import (
 type awaitKeeper struct {
 	sync.RWMutex
 
-	responseCh   chan *mqttpb.QueueMessage
-	awaitCh      chan *awaitEntry // messageId -> callbackFunc
-	messageIdMap map[string]*awaitEntry
-	ttlEntries   []*awaitEntry
-	tickInterval time.Duration
+	awaitCh       chan *awaitEntry // messageId -> callbackFunc
+	deleteEntryCh chan *awaitEntry
+	messageIdMap  map[string]*awaitEntry
+	responseCh    *chan *mqttpb.QueueMessage // chan for responses
+	ttlEntries    []*awaitEntry
+	tickInterval  time.Duration
 }
 
 type awaitEntry struct {
@@ -28,8 +29,8 @@ type awaitEntry struct {
 }
 
 func (entry *awaitEntry) Close() {
-	close(entry.errorCh)
 	close(entry.messageCh)
+	close(entry.errorCh)
 }
 
 func (keeper *awaitKeeper) Len() int {
@@ -44,13 +45,14 @@ func (keeper *awaitKeeper) Swap(i, j int) {
 	keeper.ttlEntries[i], keeper.ttlEntries[j] = keeper.ttlEntries[j], keeper.ttlEntries[i]
 }
 
-func newAwaitKeeper(opts *Options) *awaitKeeper {
+func newAwaitKeeper(opts *Options, responseMessageCh *chan *mqttpb.QueueMessage) *awaitKeeper {
 	keeper := &awaitKeeper{}
 	keeper.awaitCh = make(chan *awaitEntry, opts.awaitQueueSize)
-	keeper.responseCh = make(chan *mqttpb.QueueMessage, opts.awaitQueueSize)
+	keeper.deleteEntryCh = make(chan *awaitEntry, opts.awaitQueueSize)
 	keeper.messageIdMap = make(map[string]*awaitEntry)
 	keeper.ttlEntries = make([]*awaitEntry, 0)
 	keeper.tickInterval = opts.tickInterval
+	keeper.responseCh = responseMessageCh
 	return keeper
 }
 
@@ -63,18 +65,20 @@ func (keeper *awaitKeeper) startLoop(doneChan chan struct{}) {
 	go func() {
 		for {
 			select {
-			case _, closed := <-doneChan:
+			case _, closed := <-doneChan: // global closed
 				if closed {
 					logger.Warnf("func: startKeeper stopping...")
 					return
 				}
-			case entry := <-keeper.awaitCh:
+			case entry := <-keeper.awaitCh: // watch entry
 				keeper.insertTtlEntry(entry)
-			case response := <-keeper.responseCh:
+			case response := <-*keeper.responseCh: // new response
 				if response == nil {
 					continue
 				}
 				keeper.handleAwaitResponse(response)
+			case toDelete := <-keeper.deleteEntryCh: // ttl entry
+				keeper.handleTtlResponse(toDelete)
 			}
 		}
 	}()
@@ -91,7 +95,9 @@ func (keeper *awaitKeeper) handleTtlResponse(entry *awaitEntry) {
 	select {
 	case entry.errorCh <- e:
 	default:
-		logger.Infof("failed to push to entry's error chan, entry: %v", entry)
+		if logger.IsDebugEnabled() {
+			logger.Debugf("failed to push to entry's error chan. maybe it's been removed by ttl ticker, entry is: %v", entry)
+		}
 	}
 
 }
@@ -103,8 +109,8 @@ func (keeper *awaitKeeper) handleAwaitResponse(message *mqttpb.QueueMessage) {
 	}
 	keeper.Lock()
 	defer keeper.Unlock()
-	defer entry.Close()
 	delete(keeper.messageIdMap, entry.messageId)
+	defer entry.Close()
 	select {
 	case entry.messageCh <- message:
 	default:

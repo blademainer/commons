@@ -3,8 +3,9 @@ package queue
 import (
 	"context"
 	"fmt"
-	"github.com/blademainer/commons/pkg/logger"
+	"github.com/blademainer/commons/pkg/rpc/queue/mock"
 	mqttpb "github.com/blademainer/commons/pkg/rpc/queue/proto"
+	"github.com/blademainer/commons/pkg/logger"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -26,11 +27,67 @@ func (s *server) SayHello(ctx context.Context, in *HelloRequest) (*HelloReply, e
 	return &HelloReply{Message: "Hello " + in.Name}, nil
 }
 
+type mockQueue struct {
+}
+
+func (m *mockQueue) Produce(payload []byte) error {
+	panic("implement me")
+}
+
+func (m *mockQueue) Consume() (payload []byte, e error) {
+	panic("implement me")
+}
+
+func (m *mockQueue) Close() (e error) {
+	panic("implement me")
+}
+
+func ExampleServer_InvokeWithOpts() {
+	queue := &mockQueue{}
+	opts := NewOptions().InvokeTimeout(5 * time.Second)
+	s := NewServer(queue, opts)
+	handlerType := (*GreeterServer)(nil)
+
+	svc := &server{}
+	e := s.RegisterService(handlerType, svc)
+	if e != nil {
+		logger.Fatal(e)
+	}
+
+	invokeOpts := NewInvokeOptions().WithProduceFunc(func(bytes []byte) error {
+		e := queue.Produce(bytes)
+		return e
+	})
+
+	request := &HelloRequest{Name: "zhangsan"}
+	response, m, e := s.InvokeWithOpts(handlerType, "SayHello", context.Background(), request, invokeOpts)
+	fmt.Println(response)
+	fmt.Println(m)
+}
+
+func ExampleServer_Invoke() {
+	queue := &mockQueue{}
+	opts := NewOptions().InvokeTimeout(5 * time.Second)
+	s := NewServer(queue, opts)
+	handlerType := (*GreeterServer)(nil)
+
+	svc := &server{}
+	e := s.RegisterService(handlerType, svc)
+	if e != nil {
+		logger.Fatal(e)
+	}
+
+	request := &HelloRequest{Name: "zhangsan"}
+	response, m, e := s.Invoke(handlerType, "SayHello", context.Background(), request)
+	fmt.Println(response)
+	fmt.Println(m)
+}
+
 func BenchmarkHandle(b *testing.B) {
 	logger.SetLevel(logger.LOG_LEVEL_INFO)
 
 	controller := gomock.NewController(b)
-	queue := NewMockQueue(controller)
+	queue := mock.NewMockQueue(controller)
 	var capturedArgs [][]byte
 	queue.
 		EXPECT().
@@ -51,8 +108,9 @@ func BenchmarkHandle(b *testing.B) {
 	}
 
 	request := &HelloRequest{Name: "zhangsan"}
-	respose, e := s.Invoke(handlerType, "SayHello", context.Background(), request)
-	fmt.Println(respose)
+	response, m, e := s.Invoke(handlerType, "SayHello", context.Background(), request)
+	fmt.Println(response)
+	fmt.Println(m)
 	for i := 0; i < b.N; i++ {
 		e = s.Handle(capturedArgs[0])
 		if e != nil {
@@ -106,7 +164,7 @@ func Test_defaultServer_Invoke(t *testing.T) {
 	logger.SetLevel(logger.LOG_LEVEL_DEBUG)
 
 	controller := gomock.NewController(t)
-	queue := NewMockQueue(controller)
+	queue := mock.NewMockQueue(controller)
 	var capturedArgs []byte
 
 	queue.
@@ -123,8 +181,9 @@ func Test_defaultServer_Invoke(t *testing.T) {
 	//s := &defaultServer{}
 	//s.RegisterService(handlerType, svc)
 	request := &HelloRequest{Name: "zhangsan"}
-	response, e := s.Invoke(handlerType, "SayHello", context.Background(), request)
+	response, m, e := s.Invoke(handlerType, "SayHello", context.Background(), request)
 	fmt.Println(response)
+	fmt.Println(m)
 	fmt.Println(capturedArgs)
 	msg := &mqttpb.QueueMessage{}
 	e = proto.Unmarshal(capturedArgs, msg)
@@ -147,7 +206,7 @@ func Test_defaultServer_RegisterService(t *testing.T) {
 	logger.SetLevel(logger.LOG_LEVEL_DEBUG)
 
 	controller := gomock.NewController(t)
-	queue := NewMockQueue(controller)
+	queue := mock.NewMockQueue(controller)
 	var capturedArgs []byte
 	queue.
 		EXPECT().
@@ -168,9 +227,10 @@ func Test_defaultServer_RegisterService(t *testing.T) {
 	}
 
 	request := &HelloRequest{Name: "zhangsan"}
-	response, e := s.Invoke(handlerType, "SayHello", context.Background(), request)
+	response, m, e := s.Invoke(handlerType, "SayHello", context.Background(), request)
 	fmt.Println(response)
 	fmt.Println(capturedArgs)
+	fmt.Println(m)
 	msg := &mqttpb.QueueMessage{}
 	e = proto.Unmarshal(capturedArgs, msg)
 	if e != nil {
@@ -191,7 +251,7 @@ func Test_defaultServer_Handle(t *testing.T) {
 	logger.SetLevel(logger.LOG_LEVEL_DEBUG)
 
 	controller := gomock.NewController(t)
-	queue := NewMockQueue(controller)
+	queue := mock.NewMockQueue(controller)
 	var capturedArgs [][]byte
 	queue.
 		EXPECT().
@@ -212,8 +272,9 @@ func Test_defaultServer_Handle(t *testing.T) {
 	}
 
 	request := &HelloRequest{Name: "zhangsan"}
-	response, e := s.Invoke(handlerType, "SayHello", context.Background(), request)
+	response, m, e := s.Invoke(handlerType, "SayHello", context.Background(), request)
 	fmt.Println(response)
+	fmt.Println(m)
 	e = s.Handle(capturedArgs[0])
 	if e != nil {
 		t.Fatal(e)

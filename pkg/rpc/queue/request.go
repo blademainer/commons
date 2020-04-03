@@ -3,9 +3,9 @@ package queue
 import (
 	"context"
 	"fmt"
-	"github.com/blademainer/commons/pkg/logger"
 	mqttpb "github.com/blademainer/commons/pkg/rpc/queue/proto"
 	"github.com/golang/protobuf/proto"
+	"github.com/blademainer/commons/pkg/logger"
 	"reflect"
 )
 
@@ -13,6 +13,10 @@ func (s *defaultServer) handleRequest(message *mqttpb.QueueMessage) (responseDat
 	// find method
 	cmd := message.Command
 	bytes := message.Message
+
+	s.RLock()
+	defer s.RUnlock()
+
 	method, exists := s.cmdMap[cmd]
 	if !exists {
 		e = fmt.Errorf("could't found method of cmd: %v please use RegisterService to register your server", cmd)
@@ -57,14 +61,17 @@ func (s *defaultServer) handleRequest(message *mqttpb.QueueMessage) (responseDat
 	response.MessageId = message.MessageId
 
 	if values[1].Interface() != nil {
-		err, cast := values[1].Interface().(*error)
+		err, cast := values[1].Interface().(error)
 		if !cast {
 			e = fmt.Errorf("failed to cast return values[1]: %v to error", values[1])
 			logger.Error(e.Error())
 			return
 		} else if err != nil {
+			if logger.IsDebugEnabled() {
+				logger.Debugf("invoke method: %v and returns error: %v", cmd, err.Error())
+			}
 			response.Command = cmd
-			response.Error = (*err).Error()
+			response.Error = err.Error()
 			response.Success = false
 			responseData, e = proto.Marshal(response)
 			return
@@ -92,21 +99,11 @@ func invoke(method reflect.Value, args ...interface{}) []reflect.Value {
 	return out
 }
 
-
-
-func (s *defaultServer) invokeRequest(handlerType interface{}, method string, ctx context.Context, message proto.Message) (messageId *string, e error) {
-	found, exists := s.handleTypeMap[handlerType]
+func (s *defaultServer) invokeRequest(handlerType interface{}, method string, ctx context.Context, message proto.Message, options *InvokeOptions) (messageId *string, e error) {
 	ht := reflect.TypeOf(handlerType).Elem()
-	if !exists {
-		s.Lock()
-		defer s.Unlock()
-		grpcMethods, e := parseService(ht)
-		logger.Infof("parse service: %v to grpcMethods: %v", ht, grpcMethods)
-		if e != nil {
-			return nil, e
-		}
-		s.handleTypeMap[handlerType] = grpcMethods
-		found = grpcMethods
+	found, e := s.getHandleType(handlerType)
+	if e != nil {
+		return
 	}
 	m, methodExists := found.MethodMap[method]
 	if !methodExists {
@@ -136,6 +133,6 @@ func (s *defaultServer) invokeRequest(handlerType interface{}, method string, ct
 	if logger.IsDebugEnabled() {
 		logger.Debugf("marshaled mqttMessage: %v to: %v", mqttMessage, raw)
 	}
-	e = s.Produce(raw)
+	e = options.produceFunc(raw)
 	return
 }

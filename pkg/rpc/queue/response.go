@@ -2,8 +2,6 @@ package queue
 
 import (
 	"context"
-	"fmt"
-	"github.com/blademainer/commons/pkg/logger"
 	mqttpb "github.com/blademainer/commons/pkg/rpc/queue/proto"
 	"github.com/golang/protobuf/proto"
 	"reflect"
@@ -11,15 +9,15 @@ import (
 )
 
 // message consume from queue
-func (s *defaultServer) handleResponse(message *mqttpb.QueueMessage) (e error) {
-	select {
-	case s.keeper.responseCh <- message:
-		return nil
-	default:
-		e := fmt.Errorf("responseCh is full")
-		return e
-	}
-}
+//func (s *defaultServer) handleResponse(message *mqttpb.QueueMessage) (e error) {
+//	select {
+//	case s.responseMessageChan <- message:
+//		return nil
+//	default:
+//		e := fmt.Errorf("responseCh is full, current size: %v", len(s.responseMessageChan))
+//		return e
+//	}
+//}
 
 // clients await response
 func (s *defaultServer) awaitResponse(ctx context.Context, messageId string) (message *mqttpb.QueueMessage, e error) {
@@ -47,16 +45,9 @@ func (s *defaultServer) awaitResponse(ctx context.Context, messageId string) (me
 
 func (s *defaultServer) parseResponse(handlerType interface{}, method string, queueMessage mqttpb.QueueMessage) (response proto.Message, e error) {
 	bytes := queueMessage.Message
-	found, exists := s.handleTypeMap[handlerType]
-	ht := reflect.TypeOf(handlerType).Elem()
-	if !exists {
-		grpcMethods, e := parseService(ht)
-		logger.Infof("parse service: %v to grpcMethods: %v", ht, grpcMethods)
-		if e != nil {
-			return nil, e
-		}
-		s.handleTypeMap[handlerType] = grpcMethods
-		found = grpcMethods
+	found, e := s.getHandleType(handlerType)
+	if e != nil {
+		return
 	}
 	grpcMethod := found.MethodMap[method]
 	value := reflect.New(grpcMethod.Out.Elem())

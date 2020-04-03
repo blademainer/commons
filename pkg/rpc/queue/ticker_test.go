@@ -76,3 +76,17 @@ func Test_foundBestPos(t *testing.T) {
 		})
 	}
 }
+
+func Test_awaitKeeper_subset(t *testing.T) {
+	arr := make([]*awaitEntry, 5)
+	for i, a := range arr {
+		a = &awaitEntry{}
+		a.messageId = fmt.Sprintf("%d", i)
+		fmt.Println(a)
+		arr[i] = a
+	}
+	result := arr
+	arr = make([]*awaitEntry, 0)
+	fmt.Println("result: ", result)
+	fmt.Println("arr: ", arr)
+}

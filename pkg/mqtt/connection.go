@@ -3,6 +3,7 @@ package mqtt
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"github.com/blademainer/commons/pkg/logger"
 	"github.com/blademainer/commons/pkg/retryer"
@@ -28,14 +29,19 @@ func CreateClient(opts *mqtt.ClientOptions) (mqtt.Client, error) {
 }
 
 // Create a MQTT client
-func CreateClientByUri(clientID string, uri *url.URL, keepAlive time.Duration) (mqtt.Client, error) {
-	logger.Infof("Create MQTT client and connection: uri=%v clientID=%v", uri.String(), clientID)
+func CreateClientByUri(clientID string, keepAlive time.Duration, uris ...*url.URL) (mqtt.Client, error) {
+	if len(uris) == 0 {
+		return nil, errors.New("must present at least one uri")
+	}
+	logger.Infof("Create MQTT client and connection: uri=%v clientID=%v", uris, clientID)
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(fmt.Sprintf("%s://%s", uri.Scheme, uri.Host))
+	for _, uri := range uris {
+		opts.AddBroker(fmt.Sprintf("%s://%s", uri.Scheme, uri.Host))
+	}
 	opts.SetClientID(clientID)
-	opts.SetUsername(uri.User.Username())
-	password, _ := uri.User.Password()
-	opts.SetPassword(password)
+	//opts.SetUsername(uri.User.Username())
+	//password, _ := uri.User.Password()
+	//opts.SetPassword(password)
 	opts.SetConnectTimeout(keepAlive)
 	opts.SetKeepAlive(keepAlive)
 	opts.SetConnectionLostHandler(reconnectHandler(keepAlive))
@@ -44,14 +50,19 @@ func CreateClientByUri(clientID string, uri *url.URL, keepAlive time.Duration) (
 }
 
 // Create a MQTT client
-func CreateTlsClientByUri(clientID string, uri *url.URL, keepAlive time.Duration, config *tls.Config) (mqtt.Client, error) {
-	logger.Infof("Create MQTT client and connection: uri=%v clientID=%v", uri.String(), clientID)
+func CreateTlsClientByUri(clientID string, keepAlive time.Duration, config *tls.Config, uris ...*url.URL) (mqtt.Client, error) {
+	if len(uris) == 0 {
+		return nil, errors.New("must present at least one uri")
+	}
+	logger.Infof("Create MQTT client and connection: uri=%v clientID=%v", uris, clientID)
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(fmt.Sprintf("%s://%s", uri.Scheme, uri.Host))
+	for _, uri := range uris {
+		opts.AddBroker(fmt.Sprintf("%s://%s", uri.Scheme, uri.Host))
+	}
 	opts.SetClientID(clientID)
-	opts.SetUsername(uri.User.Username())
-	password, _ := uri.User.Password()
-	opts.SetPassword(password)
+	//opts.SetUsername(uri.User.Username())
+	//password, _ := uri.User.Password()
+	//opts.SetPassword(password)
 	opts.SetConnectTimeout(keepAlive)
 	opts.SetKeepAlive(keepAlive)
 	opts.SetConnectionLostHandler(reconnectHandler(keepAlive))
@@ -72,13 +83,13 @@ func reconnectHandler(keepaliveTime time.Duration) func(client mqtt.Client, e er
 			token := client.Connect()
 			if token.Wait() && token.Error() != nil {
 				logger.Warnf("Reconnection failed : %v", token.Error())
-				return token.Error()
+				return &retryer.RetryError{}
 			} else {
 				logger.Warnf("Reconnection sucessful")
-				e := growthRetryer.Stop()
-				if e != nil{
-					logger.Errorf("failed to stop retryer: %v", e.Error())
-				}
+				//e := growthRetryer.Stop()
+				//if e != nil{
+				//	logger.Errorf("failed to stop retryer: %v", e.Error())
+				//}
 			}
 			return nil
 		})

@@ -19,6 +19,16 @@ import (
 	"time"
 )
 
+// server is used to implement helloworld.GreeterServer.
+type server struct{}
+
+// SayHello implements helloworld.GreeterServer
+func (s *server) SayHello(ctx context.Context, in *HelloRequest) (*HelloReply, error) {
+	fmt.Println("SayHello: ", in.Name)
+	time.Sleep(4 * time.Second)
+	return &HelloReply{Message: "Hello " + in.Name}, nil
+}
+
 func main() {
 	go func() {
 		fmt.Println(http.ListenAndServe("localhost:16060", nil))
@@ -30,8 +40,22 @@ func main() {
 		panic(e)
 	}
 	q, e := NewMqttQueue(u, "test", 5*time.Second)
-	opts := queue.NewOptions().InvokeTimeout(5 * time.Second).AwaitResponse(true)
+	opts := queue.NewOptions().InvokeTimeout(5 * time.Second).AwaitResponse(false)
 	s := queue.NewServer(q, opts)
+
+	responseMessageChan, e := s.WatchResponse()
+	if e != nil {
+		panic(e)
+	}
+
+	go func() {
+		for {
+			select {
+			case message := <-responseMessageChan:
+				fmt.Println("chan response: ", message)
+			}
+		}
+	}()
 
 	handlerType := (*GreeterServer)(nil)
 
@@ -44,18 +68,17 @@ func main() {
 	for i := 0; i < 10; i++ {
 		go func() {
 			for i := 0; i < loopSize/10; i++ {
-
 				request := &HelloRequest{Name: fmt.Sprintf("zhangsan:%v", i)}
 				timeout, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
 				m, id, e := s.Invoke(handlerType, "SayHello", timeout, request)
-				if e != nil {
+				if e != nil && !queue.IsSkipAwaitError(e) {
 					logger.Errorf(e.Error())
+				} else if m != nil {
+					fmt.Printf("response: %v id: %v", m, id)
 				}
-				fmt.Printf("response: %v id: %v", m, id)
 				wg.Done()
 				cancelFunc()
 			}
-
 		}()
 	}
 
@@ -88,12 +111,9 @@ func (m *mqttQueue) Close() (e error) {
 }
 
 func (m *mqttQueue) Produce(payload []byte) error {
-	wait := m.Client.Publish(m.topic, m.qos, true, payload)
+	wait := m.Client.Publish(m.topic, m.qos, false, payload)
 	if wait.Wait() && wait.Error() != nil {
 		return wait.Error()
-	}
-	if logger.IsDebugEnabled() {
-		logger.Debugf("succeed push data to mqtt")
 	}
 	return nil
 }
@@ -114,7 +134,6 @@ func NewMqttQueue(uri *url.URL, topic string, duration time.Duration) (*mqttQueu
 	q.dataCh = make(chan []byte)
 
 	t := q.Client.Subscribe(q.topic, q.qos, func(client mqtt2.Client, message mqtt2.Message) {
-		defer message.Ack()
 		payload := message.Payload()
 		q.dataCh <- payload
 	})
@@ -122,16 +141,6 @@ func NewMqttQueue(uri *url.URL, topic string, duration time.Duration) (*mqttQueu
 		return nil, t.Error()
 	}
 	return q, nil
-}
-
-// server is used to implement helloworld.GreeterServer.
-type server struct{}
-
-// SayHello implements helloworld.GreeterServer
-func (s *server) SayHello(ctx context.Context, in *HelloRequest) (*HelloReply, error) {
-	fmt.Println("SayHello: ", in.Name)
-	time.Sleep(4 * time.Second)
-	return &HelloReply{Message: "Hello " + in.Name}, nil
 }
 
 // Reference imports to suppress errors if they are not otherwise used.

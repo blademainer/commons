@@ -43,12 +43,12 @@ func (keeper *awaitKeeper) doTick(now time.Time) {
 		return
 	}
 	if logger.IsDebugEnabled() {
-		logger.Debugf("found ttl subset size: %v, subIndex: %v, entries: %v", len(subset), subIndex, keeper.ttlEntries)
+		logger.Debugf("found ttl subset size: %v, subIndex: %v, least entry size: %v", len(subset), subIndex, len(keeper.ttlEntries))
 	}
 
 	// delete ttl entry
 	for _, s := range subset {
-		keeper.handleTtlResponse(s)
+		keeper.deleteEntryCh <- s
 	}
 }
 

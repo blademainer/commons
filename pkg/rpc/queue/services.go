@@ -8,6 +8,7 @@ import (
 	mqttpb "github.com/blademainer/commons/pkg/rpc/queue/proto"
 	"github.com/golang/protobuf/proto"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 )
@@ -17,19 +18,25 @@ type Server interface {
 	RegisterService(handlerType interface{}, service interface{}) error
 	//RegisterServiceFn(f RegisterFunc)
 	Serve() error
-	Invoke(handlerType interface{}, method string, ctx context.Context, message proto.Message) (proto.Message, error) // invokeRequest grpc queue
-	Handle(payload []byte) (e error)                                                                                  // handle queue's message by server
+	// invokeRequest grpc queue.
+	// returns SkipAwaitError when awaitResponse option is off. please use func: queue.IsSkipAwaitError(e) to judgement the error type.
+	Invoke(handlerType interface{}, method string, ctx context.Context, message proto.Message) (response proto.Message, messageId *string, e error)
+	InvokeWithOpts(handlerType interface{}, method string, ctx context.Context, message proto.Message, opts *InvokeOptions) (response proto.Message, messageId *string, e error)
+	Handle(payload []byte) (e error) // handle queue's message by server
 	Stop() (e error)
+	WatchResponse() (responseMessageChan <-chan *mqttpb.QueueMessage, e error)
 }
 
 type AwaitResponseFunc = func(message *mqttpb.QueueMessage, e error)
 
 type defaultServer struct {
-	sync.Mutex
 	*generator.Generator
 	*Options
+	sync.RWMutex
 
-	doneCh chan struct{}
+	doneCh              chan struct{}
+	responseMessageChan chan *mqttpb.QueueMessage // chan for responses
+	requestMessageChan  chan *mqttpb.QueueMessage // chan for responses
 
 	queue         Queue
 	serviceMap    map[interface{}]serviceAndMethod // [implements of ServerInterface] -> (methodName -> method)
@@ -39,15 +46,25 @@ type defaultServer struct {
 	keeper *awaitKeeper
 }
 
+func (s *defaultServer) WatchResponse() (responseMessageChan <-chan *mqttpb.QueueMessage, e error) {
+	if s.Options.awaitResponse {
+		e = fmt.Errorf("failed to get responseMessageChan, because Options.awaitResponse is on")
+		return nil, e
+	}
+	return s.responseMessageChan, nil
+}
+
 func NewServer(client Queue, options *Options) Server {
 	server := &defaultServer{}
 	server.serviceMap = make(map[interface{}]serviceAndMethod, 0)
 	server.cmdMap = make(map[string]*grpcMethod)
 	server.handleTypeMap = make(map[interface{}]*grpcMethods)
 	server.queue = client
+	server.requestMessageChan = make(chan *mqttpb.QueueMessage, options.awaitQueueSize)
+	server.responseMessageChan = make(chan *mqttpb.QueueMessage, options.awaitQueueSize)
 
 	if options.awaitResponse {
-		keeper := newAwaitKeeper(options)
+		keeper := newAwaitKeeper(options, &server.responseMessageChan)
 		server.keeper = keeper
 		server.startKeeper()
 	}
@@ -75,6 +92,7 @@ func (s *defaultServer) Produce(payload []byte) error {
 }
 
 func (s *defaultServer) Serve() error {
+	s.startHandleRequest()
 	s.startConsumeQueue()
 	return nil
 }
@@ -99,6 +117,37 @@ func (s *defaultServer) startConsumeQueue() {
 	}
 }
 
+func (s *defaultServer) startHandleRequest() {
+	for i := 0; i < s.messageHandleConcurrentSize; i++ {
+		go func() {
+			for {
+				select {
+				case message := <-s.requestMessageChan:
+					responseData, e := s.handleRequest(message)
+					if e != nil {
+						logger.Errorf("failed to handle message: %v, error: %v", message, e.Error())
+					} else if responseData == nil {
+						logger.Warnf("failed to handle message: %v because response is nil", message)
+					}
+					e = s.queue.Produce(responseData)
+					if e != nil {
+						logger.Errorf("failed to produce message, error: %v", e.Error())
+					}
+				case <-s.doneCh:
+					logger.Warnf("stopping HandleRequest...")
+					return
+				}
+			}
+		}()
+	}
+}
+
+func PrintStack() {
+	var buf [4096]byte
+	n := runtime.Stack(buf[:], false)
+	fmt.Printf("==> %s\n", string(buf[:n]))
+}
+
 // RegisterService registers a service and its implementation to the gRPC
 // defaultServer. It is called from the IDL generated code. This must be called before
 // invoking Serve.
@@ -106,6 +155,7 @@ func (s *defaultServer) RegisterService(handlerType interface{}, service interfa
 	ht := reflect.TypeOf(handlerType).Elem()
 	st := reflect.TypeOf(service)
 	if !st.Implements(ht) {
+		PrintStack()
 		logger.Fatalf("grpc: Server.RegisterService found the handler of type %v that does not satisfy %v", st, ht)
 	}
 	//mapper := Get(handlerType)
@@ -146,33 +196,35 @@ func (s *defaultServer) Handle(payload []byte) (e error) {
 		return
 	}
 
+	if logger.IsDebugEnabled() {
+		logger.Debugf("receive type: %v message: %v", message.Type, message)
+	}
+
 	switch message.Type {
 	case mqttpb.MessageType_REQUEST:
-		responseData, e := s.handleRequest(message)
-		if e != nil {
-			return e
-		} else if responseData == nil {
-			return nil
-		}
-		e = s.queue.Produce(responseData)
-		if e != nil {
-			logger.Errorf("failed to produce message, error: %v", e.Error())
-		}
-		return e
+		s.requestMessageChan <- message
+		return nil
 	case mqttpb.MessageType_RESPONSE:
-		return s.handleResponse(message)
+		s.responseMessageChan <- message
+		return nil
 	default:
 		logger.Errorf("unknown message type: %v", message.Type)
 		return
 	}
 }
 
-func (s *defaultServer) Invoke(handlerType interface{}, method string, ctx context.Context, message proto.Message) (response proto.Message, e error) {
+func (s *defaultServer) Invoke(handlerType interface{}, method string, ctx context.Context, message proto.Message) (response proto.Message, messageId *string, e error) {
+	options := NewInvokeOptions()
+	options.produceFunc = s.Produce
+	return s.InvokeWithOpts(handlerType, method, ctx, message, options)
+}
+
+func (s *defaultServer) InvokeWithOpts(handlerType interface{}, method string, ctx context.Context, message proto.Message, opts *InvokeOptions) (response proto.Message, messageId *string, e error) {
 	if handlerType == nil {
-		e := fmt.Errorf("handlerType is nil")
-		return nil, e
+		e = fmt.Errorf("handlerType is nil")
+		return
 	}
-	messageId, e := s.invokeRequest(handlerType, method, ctx, message)
+	messageId, e = s.invokeRequest(handlerType, method, ctx, message, opts)
 	if e != nil {
 		return
 	} else if messageId == nil {
@@ -181,7 +233,7 @@ func (s *defaultServer) Invoke(handlerType interface{}, method string, ctx conte
 	}
 
 	if !s.Options.awaitResponse {
-		e = &SkipAwaitError{"skip waiting response, because options.awaitResponse is false"}
+		e = &SkipAwaitError{"skip waiting response, because options.awaitResponse is false. please use func: queue.IsSkipAwaitError(e) to judgement the error type."}
 		return
 	}
 
@@ -224,6 +276,38 @@ func (g *grpcMethod) Url() string {
 func BuildUrl(interfaceType reflect.Type, method reflect.Method) string {
 	split := strings.Split(interfaceType.PkgPath(), "/")
 	return fmt.Sprintf("/%v.%v/%v", split[len(split)-1], interfaceType.Name(), method.Name)
+}
+
+func (s *defaultServer) getHandleType(handlerType interface{}) (methods *grpcMethods, e error) {
+	s.RLock()
+	defer s.RUnlock()
+	methods, exists := s.handleTypeMap[handlerType]
+	ht := reflect.TypeOf(handlerType).Elem()
+	if !exists {
+		//       code block start								       code block end
+		//             ⬇													  ⬇
+		// ReadLock -> {  ReadUnlock -> Lock -> write() -> UnLock -> ReadLock } -> ReadUnlock
+
+		// release ReadLock for next step's write lock
+		s.RUnlock()
+		// get ReadLock before the defer's last ReadUnlock
+		defer s.RLock()
+		// begin write
+		s.Lock()
+		// release write lock
+		defer s.Unlock()
+		if methods, exists = s.handleTypeMap[handlerType]; exists {
+			return
+		}
+		grpcMethods, e := parseService(ht)
+		logger.Infof("parse service: %v to grpcMethods: %v", ht, grpcMethods)
+		if e != nil {
+			return methods, e
+		}
+		s.handleTypeMap[handlerType] = grpcMethods
+		methods = grpcMethods
+	}
+	return
 }
 
 func parseService(ht reflect.Type) (*grpcMethods, error) {
