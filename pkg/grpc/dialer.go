@@ -58,7 +58,7 @@ func DialUrl(ctx context.Context, addr url.URL, opts ...grpc.DialOption) (*grpc.
 		}
 	}
 	network, host := ParseDialTarget(addr.String())
-
+	host = addr.Host
 	return Dial(ctx, network, host, creds, opts...)
 }
 
