@@ -3,9 +3,9 @@ package queue
 import (
 	"context"
 	"fmt"
+	"github.com/blademainer/commons/pkg/logger"
 	"github.com/blademainer/commons/pkg/rpc/queue/mock"
 	mqttpb "github.com/blademainer/commons/pkg/rpc/queue/proto"
-	"github.com/blademainer/commons/pkg/logger"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -99,6 +99,7 @@ func BenchmarkHandle(b *testing.B) {
 
 	opts := NewOptions().InvokeTimeout(5 * time.Second)
 	s := NewServer(queue, opts)
+	ds := s.(*defaultServer)
 	handlerType := (*GreeterServer)(nil)
 
 	svc := &server{}
@@ -111,8 +112,14 @@ func BenchmarkHandle(b *testing.B) {
 	response, m, e := s.Invoke(handlerType, "SayHello", context.Background(), request)
 	fmt.Println(response)
 	fmt.Println(m)
+	message := &mqttpb.QueueMessage{}
+	e = proto.Unmarshal(capturedArgs[0], message)
+	if e != nil {
+		b.Fatal(e)
+		return
+	}
 	for i := 0; i < b.N; i++ {
-		e = s.Handle(capturedArgs[0])
+		_, e = ds.handleRequest(message)
 		if e != nil {
 			logger.Fatal(e)
 		}
