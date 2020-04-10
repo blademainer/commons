@@ -39,7 +39,7 @@ func ExampleParser_Parse() {
 	}
 	parser, err := NewParser(p)
 	proto := parser.GetFields()
-	fmt.Printf("fields: %v err: %v\n", proto, err)
+	//fmt.Printf("fields: %v err: %v\n", proto, err)
 
 	// name field of A.B.C.Name
 	fieldEntry := proto["b_c_name"]
@@ -47,8 +47,6 @@ func ExampleParser_Parse() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(value)
-
 	//for k, v := range proto {
 	//	fmt.Printf("k: %v v: %v\n", k, v)
 	//	value, err := v.FieldValueFunc(p)
@@ -58,6 +56,11 @@ func ExampleParser_Parse() {
 	//		fmt.Println(value)
 	//	}
 	//}
+
+	fmt.Println(value)
+	// Output:
+	// test
+
 }
 
 func TestConvertJson(t *testing.T) {
