@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/blademainer/commons/pkg/logger"
-	"github.com/blademainer/commons/pkg/rpc/queue/mock"
+	mock "github.com/blademainer/commons/pkg/rpc/queue/mock"
 	mqttpb "github.com/blademainer/commons/pkg/rpc/queue/proto"
 	"time"
 
