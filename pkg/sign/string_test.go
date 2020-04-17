@@ -75,6 +75,15 @@ func TestType(t *testing.T) {
 	}
 }
 
+func ExampleParamsCompacter_ParamsToString() {
+	aType := AType{Version: "hello", PayAmount: 23, Sign: "sssss"}
+	compacter := NewParamsCompacter(AType{}, "json", []string{"sign"}, true, "&", "=")
+	s := compacter.ParamsToString(aType)
+	fmt.Println(s)
+	// Output:
+	// pay_amount=23&version=hello
+}
+
 func TestConvert(t *testing.T) {
 	aType := AType{Version: "hello", PayAmount: 23, Sign: "sssss"}
 	bytes, _ := json.Marshal(aType)
@@ -83,4 +92,13 @@ func TestConvert(t *testing.T) {
 	s := compacter.ParamsToString(aType)
 	fmt.Println(s)
 	assert.Equal(t, "pay_amount=23&version=hello", s)
+}
+
+func ExampleParamsCompacter_MapParamsToSortedString() {
+	aType := map[string]interface{}{"version": "hello", "pay_amount": 23, "sign": "sssss"}
+	compacter := NewParamsCompacter(AType{}, "json", []string{"sign"}, true, "&", "=")
+	s := compacter.MapParamsToSortedString(aType)
+	fmt.Println(s)
+	// Output:
+	// pay_amount=23&version=hello
 }

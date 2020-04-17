@@ -49,6 +49,7 @@ l:
 	sort.Strings(fieldNames)
 
 	p := ParamsCompacter{}
+	p.IgnoreKeys = ignoreKeys
 	p.entityFieldNames = entityFieldNames
 	p.SortedKeyFieldNames = fieldNames
 	p.IgnoreEmptyValue = ignoreEmptyValue
@@ -76,6 +77,41 @@ func (p ParamsCompacter) ParamsToString(instance interface{}) string {
 	}
 
 	return p.BuildMapToString(params)
+}
+
+func (p ParamsCompacter) MapParamsToSortedString(params map[string]interface{}) string {
+	defer func() {
+		if message := recover(); message != nil {
+			fmt.Println(message)
+		}
+	}()
+
+	names := make([]string, 0)
+l:
+	for name, _ := range params {
+		for _, ignore := range p.IgnoreKeys {
+			if ignore == name {
+				continue l
+			}
+		}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	builder := strings.Builder{}
+	delimiter := ""
+	for _, key := range names {
+		value := params[key]
+		if p.IgnoreEmptyValue && value == "" {
+			continue
+		}
+		builder.WriteString(delimiter)
+		builder.WriteString(key)
+		builder.WriteString(p.KeyValueDelimiter)
+		builder.WriteString(fmt.Sprintf("%v", value))
+		delimiter = p.PairsDelimiter
+	}
+	return builder.String()
 }
 
 func (p ParamsCompacter) BuildMapToString(params map[string]string) string {

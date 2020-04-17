@@ -65,7 +65,7 @@ func ExampleServer_InvokeWithOpts() {
 	fmt.Println(m)
 }
 
-func ExampleServer_Invoke() {
+func ExampleDefaultServer_Invoke() {
 	queue := &mockQueue{}
 	opts := NewOptions().InvokeTimeout(5 * time.Second)
 	s := NewServer(queue, opts)
