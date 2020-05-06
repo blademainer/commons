@@ -2,6 +2,7 @@ package recover
 
 import (
 	"fmt"
+	"runtime"
 	"testing"
 )
 
@@ -43,3 +44,21 @@ func ExampleWithRecoverAndHandle() {
 		fmt.Println("Error happened! error: ", i)
 	})
 }
+
+func caller() {
+	caller, file, line, ok := runtime.Caller(1)
+	name := runtime.FuncForPC(caller).Name()
+	fmt.Sprintf("caller: %v file: %v line: %v ok: %v", name, file, line, ok)
+	//fmt.Println(s)
+}
+
+func TestCaller(t *testing.T) {
+	caller()
+}
+
+func Benchmark_caller(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		caller()
+	}
+}
+
