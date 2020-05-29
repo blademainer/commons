@@ -1,4 +1,4 @@
-package recover
+package recoverable
 
 import (
 	"fmt"
@@ -15,8 +15,9 @@ func TestWithRecover(t *testing.T) {
 }
 
 func TestWithRecoverAndHandle(t *testing.T) {
-	defer WithRecoverAndHandle(badFunc2, func(i interface{}) {
+	WithRecoverAndHandle(badFunc2, func(i interface{}) error {
 		fmt.Println("Error happened! error: ", i)
+		return nil
 	})
 
 	//panic("just panic")
@@ -40,8 +41,9 @@ func ExampleRecover() {
 }
 
 func ExampleWithRecoverAndHandle() {
-	defer WithRecoverAndHandle(badFunc2, func(i interface{}) {
+	WithRecoverAndHandle(badFunc2, func(i interface{}) error {
 		fmt.Println("Error happened! error: ", i)
+		return nil
 	})
 }
 
@@ -61,4 +63,3 @@ func Benchmark_caller(b *testing.B) {
 		caller()
 	}
 }
-
