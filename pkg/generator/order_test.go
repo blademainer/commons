@@ -15,7 +15,7 @@ func TestGenerateOrderId(t *testing.T) {
 
 var generator = New(&clusterId, 1000)
 
-func BenchmarkGenerateOrderId(b *testing.B) {
+func BenchmarkGenerateOrderIdAndDuplicate(b *testing.B) {
 	result := make(map[string]int)
 	for i := 0; i < b.N; i++ {
 		id := generator.GenerateId()
@@ -26,6 +26,24 @@ func BenchmarkGenerateOrderId(b *testing.B) {
 		if v > 1 {
 			fmt.Printf("key: %s value: %d \n", k, v)
 		}
+	}
+}
 
+func BenchmarkGenerateOrderId(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		generator.GenerateId()
+		//fmt.Println(id)
+	}
+}
+
+func BenchmarkGenerator_GenerateIndex(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		generator.GenerateIndex()
+	}
+}
+
+func BenchmarkSprintf(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		fmt.Sprintf("%v%v", 1, 2)
 	}
 }

@@ -12,12 +12,13 @@ import (
 )
 
 type Generator struct {
-	ClusterId   *string
-	MachineId   *string
-	Concurrency int
-	maxIndex    uint32
-	indexWidth  int
-	index       uint32
+	ClusterId           *string
+	MachineId           *string
+	ClusterAndMachineID string
+	Concurrency         int
+	maxIndex            uint32
+	indexWidth          int
+	index               uint32
 }
 
 // yyyyMMddHHmmSS
@@ -29,6 +30,7 @@ func New(clusterId *string, concurrency int) *Generator {
 	id := fmt.Sprint(getIdentityId())
 	g.MachineId = &id
 	g.ClusterId = clusterId
+	g.ClusterAndMachineID = fmt.Sprintf("%s%s", *clusterId, id)
 	g.Concurrency = concurrency
 	g.maxIndex = uint32(concurrency)
 	for g.indexWidth = 0; concurrency > 0; g.indexWidth++ {
@@ -66,9 +68,14 @@ func getIdentityId() uint32 {
 }
 
 func dateStr() string {
-	date := time.Now().Format(TIME_LAYOUT)
-	nanosecond := time.Now().Nanosecond() / 1000
-	return fmt.Sprintf("%s%d", date, nanosecond)
+	now := time.Now()
+	nanosecond := now.Nanosecond() / 1000
+	date := now.Format(TIME_LAYOUT)
+	date = fmt.Sprintf("%s%d", date, nanosecond)
+	//year, month, day := now.Date()
+	//hour, min, sec := now.Hour(), now.Minute(), now.Second()
+	//date := fmt.Sprintf("%d%d%d%d%d%d%d", year, month, day, hour, min, sec, nanosecond)
+	return date
 }
 
 func (g *Generator) GenerateIndex() string {
@@ -89,11 +96,12 @@ func (g *Generator) GenerateIndex() string {
 }
 
 func (g *Generator) GenerateId() string {
-	builder := strings.Builder{}
+	//builder := strings.Builder{}
 	dateStr := dateStr()
-	builder.WriteString(dateStr)
-	builder.WriteString(*g.ClusterId)
-	builder.WriteString(*g.MachineId)
-	builder.WriteString(g.GenerateIndex())
-	return builder.String()
+	//builder.WriteString(dateStr)
+	//builder.WriteString(*g.ClusterId)
+	//builder.WriteString(*g.MachineId)
+	//builder.WriteString(g.GenerateIndex())
+	//return builder.String()
+	return fmt.Sprintf("%s%s%s", dateStr, g.ClusterAndMachineID, g.GenerateIndex())
 }
