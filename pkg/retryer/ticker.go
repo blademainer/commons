@@ -77,7 +77,7 @@ func (d *defaultRetryer) doRetry(entry *retryEntry) {
 	e := d.invoke(entry.fn)
 
 	if entry.retryTimes >= d.maxRetryTimes {
-		e = &LimitedError{innerError: e}
+		e = &LimitedError{InnerError: e}
 		return
 	}
 

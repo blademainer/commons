@@ -14,11 +14,11 @@ func IsRetryError(err error) bool {
 }
 
 type LimitedError struct {
-	innerError error
+	InnerError error
 }
 
 func (r *LimitedError) Error() string {
-	return r.innerError.Error()
+	return r.InnerError.Error()
 }
 
 func IsLimitedError(err error) bool {
