@@ -1,11 +1,11 @@
 package retryer
 
 type RetryError struct {
-	innerError error
+	InnerError error
 }
 
 func (r *RetryError) Error() string {
-	return r.innerError.Error()
+	return r.InnerError.Error()
 }
 
 func IsRetryError(err error) bool {
