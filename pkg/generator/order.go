@@ -12,8 +12,8 @@ import (
 )
 
 type Generator struct {
-	ClusterId           *string
-	MachineId           *string
+	ClusterId           string
+	MachineId           string
 	ClusterAndMachineID string
 	Concurrency         int
 	maxIndex            uint32
@@ -25,12 +25,12 @@ type Generator struct {
 const TIME_LAYOUT = "20060102150405"
 const ZERO_BYTE = byte('0')
 
-func New(clusterId *string, concurrency int) *Generator {
+func New(clusterId string, concurrency int) *Generator {
 	g := &Generator{}
 	id := fmt.Sprint(getIdentityId())
-	g.MachineId = &id
+	g.MachineId = id
 	g.ClusterId = clusterId
-	g.ClusterAndMachineID = fmt.Sprintf("%s%s", *clusterId, id)
+	g.ClusterAndMachineID = fmt.Sprintf("%s%s", clusterId, id)
 	g.Concurrency = concurrency
 	g.maxIndex = uint32(concurrency)
 	for g.indexWidth = 0; concurrency > 0; g.indexWidth++ {

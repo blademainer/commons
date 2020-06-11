@@ -8,12 +8,12 @@ import (
 var clusterId = "06"
 
 func TestGenerateOrderId(t *testing.T) {
-	generator := New(&clusterId, 1000)
+	generator := New(clusterId, 1000)
 	id := generator.GenerateId()
 	fmt.Println(id)
 }
 
-var generator = New(&clusterId, 1000)
+var generator = New(clusterId, 1000)
 
 func BenchmarkGenerateOrderIdAndDuplicate(b *testing.B) {
 	result := make(map[string]int)
