@@ -6,7 +6,7 @@ import (
 	"github.com/blademainer/commons/pkg/util"
 	"hash/fnv"
 	"os"
-	"strings"
+	"strconv"
 	"sync/atomic"
 	"time"
 )
@@ -16,14 +16,14 @@ type Generator struct {
 	MachineId           string
 	ClusterAndMachineID string
 	Concurrency         int
-	maxIndex            uint32
+	maxIndex            int32
 	indexWidth          int
-	index               uint32
+	index               int32
+	byteLength          int
+	debug               bool
 }
 
-// yyyyMMddHHmmSS
-const TIME_LAYOUT = "20060102150405"
-const ZERO_BYTE = byte('0')
+const ZeroByte = byte('0')
 
 func New(clusterId string, concurrency int) *Generator {
 	g := &Generator{}
@@ -32,11 +32,17 @@ func New(clusterId string, concurrency int) *Generator {
 	g.ClusterId = clusterId
 	g.ClusterAndMachineID = fmt.Sprintf("%s%s", clusterId, id)
 	g.Concurrency = concurrency
-	g.maxIndex = uint32(concurrency)
+	g.maxIndex = int32(concurrency)
 	for g.indexWidth = 0; concurrency > 0; g.indexWidth++ {
 		concurrency = concurrency / 10
 	}
+	dateStr := dateStr()
+	g.byteLength = len(dateStr) + len(g.ClusterId) + len(g.MachineId) + g.indexWidth
 	return g
+}
+
+func (g *Generator) Debug() {
+	g.debug = true
 }
 
 func getIdentityId() uint32 {
@@ -67,41 +73,66 @@ func getIdentityId() uint32 {
 	}
 }
 
-func dateStr() string {
+func dateStr() []byte {
+	//b := strings.Builder{}
 	now := time.Now()
-	nanosecond := now.Nanosecond() / 1000
-	date := now.Format(TIME_LAYOUT)
-	date = fmt.Sprintf("%s%d", date, nanosecond)
-	//year, month, day := now.Date()
-	//hour, min, sec := now.Hour(), now.Minute(), now.Second()
-	//date := fmt.Sprintf("%d%d%d%d%d%d%d", year, month, day, hour, min, sec, nanosecond)
-	return date
+	//year := now.Year()
+	//month := int(now.Month())
+	//day := now.Day()
+	year, month, day := now.Date()
+	hour := now.Hour()
+	minute := now.Minute()
+	second := now.Second()
+	date := int64(year)
+	date = date*int64(100) + int64(month)
+	date = date*int64(100) + int64(day)
+	date = date*int64(100) + int64(hour)
+	date = date*int64(100) + int64(minute)
+	date = date*int64(100) + int64(second)
+	//date := now.Format(TIME_LAYOUT)
+	millSeconds := now.Nanosecond() / 1000000
+	date = date*int64(1000) + int64(millSeconds)
+	bts := make([]byte, 0, 17)
+	bts = strconv.AppendInt(bts, date, 10)
+	//b.WriteString(strconv.FormatInt(date, 10))
+	//b.WriteString(strconv.Itoa(nanosecond))
+	return bts
 }
 
-func (g *Generator) GenerateIndex() string {
-	index := atomic.AddUint32(&g.index, 1) % g.maxIndex
-	s := fmt.Sprint(index)
-	leastSize := g.indexWidth - len(s)
-
-	builder := strings.Builder{}
-	if leastSize > 0 {
-		bytes := make([]byte, leastSize)
-		for i := 0; i < leastSize; i++ {
-			bytes[i] = ZERO_BYTE
-		}
-		builder.WriteString(string(bytes))
+func (g *Generator) GenerateIndex() []byte {
+	rs := make([]byte, g.indexWidth)
+	index := atomic.AddInt32(&g.index, 1) % g.maxIndex
+	if index < 0 {
+		index = -index
+		g.index = -g.index
 	}
-	builder.WriteString(s)
-	return builder.String()
+	wi := strconv.AppendInt([]byte{}, int64(index), 10)
+	start := g.indexWidth - len(wi) - 1
+	copy(rs[start:g.indexWidth], wi)
+	for i := 0; i < start; i++ {
+		rs[i] = ZeroByte
+	}
+	return rs
 }
 
 func (g *Generator) GenerateId() string {
 	//builder := strings.Builder{}
+	rs := make([]byte, g.byteLength)
 	dateStr := dateStr()
-	//builder.WriteString(dateStr)
-	//builder.WriteString(*g.ClusterId)
-	//builder.WriteString(*g.MachineId)
-	//builder.WriteString(g.GenerateIndex())
-	//return builder.String()
-	return fmt.Sprintf("%s%s%s", dateStr, g.ClusterAndMachineID, g.GenerateIndex())
+	i := 0
+	c := len(dateStr)
+	copy(rs[i:c], dateStr)
+
+	i = c
+	c += len(g.ClusterAndMachineID)
+	copy(rs[i:c], g.ClusterAndMachineID)
+
+	index := g.GenerateIndex()
+	i = c
+	c += len(index)
+	copy(rs[i:c], index)
+	if g.debug {
+		fmt.Printf("date[%s] + clusterID[%s] + machineID[%s] + index[%s]\n", dateStr, g.ClusterId, g.MachineId, index)
+	}
+	return string(rs)
 }

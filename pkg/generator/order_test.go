@@ -2,48 +2,36 @@ package generator
 
 import (
 	"fmt"
+	"math"
+	"reflect"
 	"testing"
 )
 
 var clusterId = "06"
 
+func TestDate(t *testing.T) {
+	fmt.Println(math.MaxInt64)
+	n := 2020*100 + 7 // month
+	n = n*100 + 20    // day
+	n = n*100 + 9     // hour
+	n = n*100 + 2     // minutes
+	n = n*100 + 0     // seconds
+	n = n*1000 + 3    // seconds
+	fmt.Println(n)
+	fmt.Println(reflect.TypeOf(n))
+}
+
 func TestGenerateOrderId(t *testing.T) {
 	generator := New(clusterId, 1000)
+	generator.Debug()
 	id := generator.GenerateId()
 	fmt.Println(id)
 }
 
 var generator = New(clusterId, 1000)
 
-func BenchmarkGenerateOrderIdAndDuplicate(b *testing.B) {
-	result := make(map[string]int)
-	for i := 0; i < b.N; i++ {
-		id := generator.GenerateId()
-		//fmt.Println(id)
-		result[id]++
-	}
-	for k, v := range result {
-		if v > 1 {
-			fmt.Printf("key: %s value: %d \n", k, v)
-		}
-	}
-}
-
 func BenchmarkGenerateOrderId(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		generator.GenerateId()
-		//fmt.Println(id)
-	}
-}
-
-func BenchmarkGenerator_GenerateIndex(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		generator.GenerateIndex()
-	}
-}
-
-func BenchmarkSprintf(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		fmt.Sprintf("%v%v", 1, 2)
 	}
 }
