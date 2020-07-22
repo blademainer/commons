@@ -70,7 +70,7 @@ func NewServer(client Queue, options *Options) Server {
 	}
 	server.Options = options
 	cluster := ""
-	g := generator.New(&cluster, 1000000)
+	g := generator.New(cluster, 1000000)
 	server.Generator = g
 	return server
 }

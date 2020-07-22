@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/blademainer/commons/pkg/logger"
-	recover2 "github.com/blademainer/commons/pkg/recover"
+	recover2 "github.com/blademainer/commons/pkg/recoverable"
 	"math/big"
 	"sort"
 	"time"
