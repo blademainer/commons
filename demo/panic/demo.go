@@ -17,7 +17,8 @@ func badFunc2() {
 func main() {
 	badFunc()
 	recoverable.WithRecover(badFunc2)
-	recoverable.WithRecoverAndHandle(badFunc2, func(i interface{}) {
+	recoverable.WithRecoverAndHandle(badFunc2, func(i interface{}) error {
 		fmt.Println("Error happened! error: ", i)
+		return nil
 	})
 }

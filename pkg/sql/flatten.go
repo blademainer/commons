@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/blademainer/commons/pkg/logger"
-	recover2 "github.com/blademainer/commons/pkg/recover"
+	"github.com/blademainer/commons/pkg/recoverable"
 	"github.com/iancoleman/strcase"
 	"reflect"
+	"runtime"
 )
 
 type Parser interface {
@@ -382,10 +383,11 @@ func (p *reflectParser) getValue(of reflect.Value) (interface{}, error) {
 func (p *reflectParser) resolveFieldValue(field *reflect.Value, fieldValue interface{}) (err error) {
 	//var value interface{}
 	//
-	defer recover2.RecoverWithHandle(func(i interface{}) {
-		recover2.PrintStack()
+	defer recoverable.RecoverWithHandle(func(i interface{}) error {
+		runtime.Caller(1)
 		logger.Errorf("resolveField: %v value: %v with error: %v", field.String(), fieldValue, i)
 		err = fmt.Errorf("resolveField: %v value: %v with error: %v", field.String(), fieldValue, i)
+		return err
 	})
 
 	if IsComplexField(field.Type()) {

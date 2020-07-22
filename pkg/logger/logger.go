@@ -185,7 +185,7 @@ type Logger struct {
 }
 
 func (l *Logger) Print(v ...interface{}) {
-	l.Debug(v)
+	l.Debug(v...)
 }
 
 // new a logger for logging
