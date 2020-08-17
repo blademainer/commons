@@ -62,6 +62,11 @@ type TransactionHandler func(ctx context.Context, tx *gorm.DB) (err error)
 //	})
 //}
 func Transaction(ctx context.Context, db *gorm.DB, f TransactionHandler) (err error) {
+	select {
+	case <-ctx.Done():
+		return context.DeadlineExceeded
+	default:
+	}
 	opts := &sql.TxOptions{}
 
 	tc, transactionExists := ctx.Value(transactionKey).(*transactionContext)
