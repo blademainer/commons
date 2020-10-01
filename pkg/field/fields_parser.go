@@ -47,14 +47,17 @@ func (b *Parser) String() string {
 }
 
 var (
-	HTTP_ENCODED_FORM_PARSER = &Parser{
+	// HttpEncodedFormParser encode struct to escaped http url params
+	HttpEncodedFormParser = &Parser{
 		Tag:                 "form",
 		Escape:              true,
 		GroupDelimiter:      '&',
 		PairDelimiter:       '=',
 		Sort:                false,
-		IgnoreNilValueField: true}
-	HTTP_FORM_PARSER = &Parser{
+		IgnoreNilValueField: true,
+	}
+	// HttpFormParser sort and encode struct to http url params
+	HttpFormParser = &Parser{
 		Tag:                 "form",
 		Escape:              false,
 		GroupDelimiter:      '&',

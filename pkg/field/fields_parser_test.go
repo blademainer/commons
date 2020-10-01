@@ -7,26 +7,51 @@ import (
 	"testing"
 )
 
+// Person test struct
 type Person struct {
-	Name string `form:"name"`
-	Age  uint8  `form:"age"`
+	Name   string `form:"name"`
+	Age    uint8  `form:"age"`
+	Gender int `form:"gender"`
 }
 
+// TestUnmarshal test
 func TestUnmarshal(t *testing.T) {
 	parser := &Parser{Tag: "form", Escape: false, GroupDelimiter: '&', PairDelimiter: '='}
 	parser.Tag = "form"
-	person := &Person{"zhangsan", 18}
+	person := &Person{Name: "zhangsan", Age:18}
 	params := make(map[string][]string)
 	data := parser.Unmarshal(person, params)
 	fmt.Println(data)
 
 }
 
+// TestMarshal test
 func TestMarshal(t *testing.T) {
 	parser := &Parser{Tag: "form", Escape: false, GroupDelimiter: '&', PairDelimiter: '='}
 	parser.Tag = "form"
 
-	person := &Person{"张三", 18}
+	person := &Person{Name: "张三", Age: 18}
+
+	if b, e := parser.Marshal(person); e == nil {
+		fmt.Println(string(b))
+	} else {
+		t.Fail()
+	}
+
+	m := map[string]string{"a": "b", "你好": "呵呵"}
+
+	if b, e := parser.Marshal(m); e == nil {
+		fmt.Println(string(b))
+	} else {
+		t.Fail()
+	}
+}
+// TestMarshal test
+func TestMarshalStr(t *testing.T) {
+	parser := &Parser{Tag: "form", Quoted: true, Escape: false, GroupDelimiter: '&', PairDelimiter: '='}
+	parser.Tag = "form"
+
+	person := &Person{Name: "张三", Age: 18}
 
 	if b, e := parser.Marshal(person); e == nil {
 		fmt.Println(string(b))
@@ -43,12 +68,13 @@ func TestMarshal(t *testing.T) {
 	}
 }
 
+// TestMarshal test
 func TestIgnoreEmptyValue(t *testing.T) {
 	parser := &Parser{Tag: "form", Escape: false, GroupDelimiter: '&', PairDelimiter: '=', IgnoreNilValueField: true}
 	person := &Person{Age: 18}
 	if b, e := parser.Marshal(person); e == nil {
 		s := string(b)
-		testutil.AssertTrue(t, strings.Index(s, "name") < 0)
+		testutil.AssertTrue(t, !strings.Contains(s, "name"))
 	} else {
 		t.Fail()
 	}
@@ -56,7 +82,7 @@ func TestIgnoreEmptyValue(t *testing.T) {
 	person.Name = ""
 	if b, e := parser.Marshal(person); e == nil {
 		s := string(b)
-		testutil.AssertTrue(t, strings.Index(s, "name") < 0, "name mustn't exists!")
+		testutil.AssertTrue(t, !strings.Contains(s, "name"), "name mustn't exists!")
 	} else {
 		t.Fail()
 	}
@@ -65,15 +91,16 @@ func TestIgnoreEmptyValue(t *testing.T) {
 	if b, e := parser.Marshal(person); e == nil {
 		s := string(b)
 		fmt.Println(s)
-		testutil.AssertTrue(t, strings.Index(s, "name") >= 0, "name must exists!")
+		testutil.AssertTrue(t, strings.Contains(s, "name"), "name must exists!")
 	} else {
 		t.Fail()
 	}
 }
 
+// TestSort test
 func TestSort(t *testing.T) {
-	parser := Parser{IgnoreNilValueField: true, Sort: true, Tag: "form", Escape: true, GroupDelimiter: '&', PairDelimiter: '='}
-	person := &Person{Age: 18, Name: "张三"}
+	parser := HttpFormParser
+	person := &Person{Age: 18, Name: "张三", Gender: 1}
 	if b, e := parser.Marshal(person); e == nil {
 		s := string(b)
 		fmt.Println(s)
@@ -83,10 +110,26 @@ func TestSort(t *testing.T) {
 	}
 }
 
+// Benchmark benckmark marshal
 func Benchmark(b *testing.B) {
-	p := HTTP_ENCODED_FORM_PARSER
+	p := HttpEncodedFormParser
 	person := &Person{Age: 18, Name: "张三"}
 	for i := 0; i < b.N; i++ {
-		p.Marshal(person)
+		_, err := p.Marshal(person)
+		if err != nil {
+			panic(err.Error())
+		}
+	}
+}
+
+// BenchmarkHttpFormParse benchmark HttpFormParser
+func BenchmarkHttpFormParse(b *testing.B) {
+	p := HttpFormParser
+	person := &Person{Age: 18, Name: "张三"}
+	for i := 0; i < b.N; i++ {
+		_, err := p.Marshal(person)
+		if err != nil {
+			panic(err.Error())
+		}
 	}
 }
