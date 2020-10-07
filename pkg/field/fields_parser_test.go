@@ -2,7 +2,7 @@ package field
 
 import (
 	"fmt"
-	"github.com/coreos/etcd/pkg/testutil"
+	"gopkg.in/go-playground/assert.v1"
 	"strings"
 	"testing"
 )
@@ -48,7 +48,7 @@ func TestIgnoreEmptyValue(t *testing.T) {
 	person := &Person{Age: 18}
 	if b, e := parser.Marshal(person); e == nil {
 		s := string(b)
-		testutil.AssertTrue(t, strings.Index(s, "name") < 0)
+		assert.Equal(t, strings.Index(s, "name") < 0, true)
 	} else {
 		t.Fail()
 	}
@@ -56,7 +56,7 @@ func TestIgnoreEmptyValue(t *testing.T) {
 	person.Name = ""
 	if b, e := parser.Marshal(person); e == nil {
 		s := string(b)
-		testutil.AssertTrue(t, strings.Index(s, "name") < 0, "name mustn't exists!")
+		assert.Equal(t, strings.Index(s, "name") < 0, true)
 	} else {
 		t.Fail()
 	}
@@ -65,7 +65,7 @@ func TestIgnoreEmptyValue(t *testing.T) {
 	if b, e := parser.Marshal(person); e == nil {
 		s := string(b)
 		fmt.Println(s)
-		testutil.AssertTrue(t, strings.Index(s, "name") >= 0, "name must exists!")
+		assert.Equal(t, strings.Index(s, "name") >= 0, true)
 	} else {
 		t.Fail()
 	}
@@ -77,7 +77,7 @@ func TestSort(t *testing.T) {
 	if b, e := parser.Marshal(person); e == nil {
 		s := string(b)
 		fmt.Println(s)
-		testutil.AssertTrue(t, strings.Index(s, "name") > strings.Index(s, "age"), "age must before name!")
+		assert.Equal(t, strings.Index(s, "name") > strings.Index(s, "age"), true)
 	} else {
 		t.Fail()
 	}
