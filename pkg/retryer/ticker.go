@@ -2,7 +2,7 @@ package retryer
 
 import (
 	"github.com/blademainer/commons/pkg/logger"
-	recover2 "github.com/blademainer/commons/pkg/recover"
+	"github.com/blademainer/commons/pkg/recoverable"
 	"sort"
 	"time"
 )
@@ -73,11 +73,11 @@ func (d *defaultRetryer) subset(subIndex int) []*retryEntry {
 }
 
 func (d *defaultRetryer) doRetry(entry *retryEntry) {
-	defer recover2.Recover()
+	defer recoverable.Recover()
 	e := d.invoke(entry.fn)
 
 	if entry.retryTimes >= d.maxRetryTimes {
-		e = &LimitedError{innerError: e}
+		e = &LimitedError{InnerError: e}
 		return
 	}
 

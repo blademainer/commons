@@ -1,7 +1,8 @@
-package recover
+package recoverable
 
 import (
 	"fmt"
+	"runtime"
 	"testing"
 )
 
@@ -14,8 +15,9 @@ func TestWithRecover(t *testing.T) {
 }
 
 func TestWithRecoverAndHandle(t *testing.T) {
-	defer WithRecoverAndHandle(badFunc2, func(i interface{}) {
+	WithRecoverAndHandle(badFunc2, func(i interface{}) error {
 		fmt.Println("Error happened! error: ", i)
+		return nil
 	})
 
 	//panic("just panic")
@@ -39,7 +41,25 @@ func ExampleRecover() {
 }
 
 func ExampleWithRecoverAndHandle() {
-	defer WithRecoverAndHandle(badFunc2, func(i interface{}) {
+	WithRecoverAndHandle(badFunc2, func(i interface{}) error {
 		fmt.Println("Error happened! error: ", i)
+		return nil
 	})
+}
+
+func caller() {
+	caller, file, line, ok := runtime.Caller(1)
+	name := runtime.FuncForPC(caller).Name()
+	fmt.Sprintf("caller: %v file: %v line: %v ok: %v", name, file, line, ok)
+	//fmt.Println(s)
+}
+
+func TestCaller(t *testing.T) {
+	caller()
+}
+
+func Benchmark_caller(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		caller()
+	}
 }

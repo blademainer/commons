@@ -184,6 +184,10 @@ type Logger struct {
 	logger *logrus.Logger
 }
 
+func (l *Logger) Print(v ...interface{}) {
+	l.Debug(v...)
+}
+
 // new a logger for logging
 func NewLogger() *Logger {
 	// log as custom formatter instead of the default ASCII formatter.

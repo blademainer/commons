@@ -12,14 +12,15 @@ import (
 )
 
 type Generator struct {
-	ClusterId   string
-	MachineId   string
-	Concurrency int
-	maxIndex    int32
-	indexWidth  int
-	index       int32
-	byteLength  int
-	debug       bool
+	ClusterId           string
+	MachineId           string
+	ClusterAndMachineID string
+	Concurrency         int
+	maxIndex            int32
+	indexWidth          int
+	index               int32
+	byteLength          int
+	debug               bool
 }
 
 const ZeroByte = byte('0')
@@ -29,6 +30,7 @@ func New(clusterId string, concurrency int) *Generator {
 	id := fmt.Sprint(getIdentityId())
 	g.MachineId = id
 	g.ClusterId = clusterId
+	g.ClusterAndMachineID = fmt.Sprintf("%s%s", clusterId, id)
 	g.Concurrency = concurrency
 	g.maxIndex = int32(concurrency)
 	for g.indexWidth = 0; concurrency > 0; g.indexWidth++ {
@@ -122,12 +124,8 @@ func (g *Generator) GenerateId() string {
 	copy(rs[i:c], dateStr)
 
 	i = c
-	c += len(g.ClusterId)
-	copy(rs[i:c], g.ClusterId)
-
-	i = c
-	c += len(g.MachineId)
-	copy(rs[i:c], g.MachineId)
+	c += len(g.ClusterAndMachineID)
+	copy(rs[i:c], g.ClusterAndMachineID)
 
 	index := g.GenerateIndex()
 	i = c

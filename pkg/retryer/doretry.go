@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/blademainer/commons/pkg/logger"
-	recover2 "github.com/blademainer/commons/pkg/recover"
+	recover2 "github.com/blademainer/commons/pkg/recoverable"
 	"math/big"
 	"sort"
 	"time"
@@ -61,7 +61,7 @@ func (d *defaultRetryer) invoke(do Do) error {
 		select {
 		case <-done:
 			err := fmt.Errorf("context deadline exceeded and we should retry later")
-			e := &RetryError{innerError: err}
+			e := &RetryError{InnerError: err}
 			return e
 		case <-doneCh:
 			// done

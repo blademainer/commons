@@ -1,10 +1,10 @@
 package main
 
 import "fmt"
-import "github.com/blademainer/commons/pkg/recover"
+import "github.com/blademainer/commons/pkg/recoverable"
 
 func badFunc() {
-	defer recover.Recover()
+	defer recoverable.Recover()
 	var e error
 	fmt.Println("", e.Error())
 }
@@ -16,8 +16,9 @@ func badFunc2() {
 
 func main() {
 	badFunc()
-	recover.WithRecover(badFunc2)
-	recover.WithRecoverAndHandle(badFunc2, func(i interface{}) {
+	recoverable.WithRecover(badFunc2)
+	recoverable.WithRecoverAndHandle(badFunc2, func(i interface{}) error {
 		fmt.Println("Error happened! error: ", i)
+		return nil
 	})
 }

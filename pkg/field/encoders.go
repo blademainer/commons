@@ -2,7 +2,6 @@ package field
 
 import (
 	"encoding"
-	"encoding/base64"
 	"fmt"
 	"math"
 	"net/url"
@@ -208,6 +207,18 @@ func isValidNumber(s string) bool {
 		}
 	}
 
+	s = allowDigits(s)
+
+	s, b, done := allowOptional(s)
+	if done {
+		return b
+	}
+
+	// Make sure we are at the end.
+	return s == ""
+}
+
+func allowDigits(s string) string {
 	// . followed by 1 or more digits.
 	if len(s) >= 2 && s[0] == '.' && '0' <= s[1] && s[1] <= '9' {
 		s = s[2:]
@@ -215,7 +226,10 @@ func isValidNumber(s string) bool {
 			s = s[1:]
 		}
 	}
+	return s
+}
 
+func allowOptional(s string) (string, bool, bool) {
 	// e or E followed by an optional - or + and
 	// 1 or more digits.
 	if len(s) >= 2 && (s[0] == 'e' || s[0] == 'E') {
@@ -223,16 +237,14 @@ func isValidNumber(s string) bool {
 		if s[0] == '+' || s[0] == '-' {
 			s = s[1:]
 			if s == "" {
-				return false
+				return "", false, true
 			}
 		}
 		for len(s) > 0 && '0' <= s[0] && s[0] <= '9' {
 			s = s[1:]
 		}
 	}
-
-	// Make sure we are at the end.
-	return s == ""
+	return s, false, false
 }
 
 func stringEncoder(e *encodeState, v reflect.Value, p *Parser) {
@@ -250,11 +262,10 @@ func stringEncoder(e *encodeState, v reflect.Value, p *Parser) {
 		return
 	}
 	if p.Quoted {
-		sb, err := p.Marshal(v.String())
-		if err != nil {
-			e.error(err)
-		}
-		e.string(string(sb), p.Escape)
+		e.WriteByte('"')
+		sb := v.String()
+		e.string(sb, p.Escape)
+		e.WriteByte('"')
 	} else {
 		e.string(v.String(), p.Escape)
 	}
@@ -272,6 +283,7 @@ func unsupportedTypeEncoder(e *encodeState, v reflect.Value, _ *Parser) {
 	e.error(&UnsupportedTypeError{v.Type()})
 }
 
+// structEncoder encoder for struct
 type structEncoder struct {
 	fields    []field
 	fieldEncs []encoderFunc
@@ -324,6 +336,7 @@ func (p *Parser) newStructEncoder(t reflect.Type) encoderFunc {
 	return se.encode
 }
 
+// mapEncoder encoder for map
 type mapEncoder struct {
 	elemEnc encoderFunc
 }
@@ -369,28 +382,7 @@ func (p *Parser) newMapEncoder(t reflect.Type) encoderFunc {
 	return me.encode
 }
 
-func encodeByteSlice(e *encodeState, v reflect.Value, _ Parser) {
-	if v.IsNil() {
-		e.WriteString("null")
-		return
-	}
-	s := v.Bytes()
-	e.WriteByte('"')
-	if len(s) < 1024 {
-		// for small buffers, using Encode directly is much faster.
-		dst := make([]byte, base64.StdEncoding.EncodedLen(len(s)))
-		base64.StdEncoding.Encode(dst, s)
-		e.Write(dst)
-	} else {
-		// for large buffers, avoid unnecessary extra temporary
-		// buffer space.
-		enc := base64.NewEncoder(base64.StdEncoding, e)
-		enc.Write(s)
-		enc.Close()
-	}
-	e.WriteByte('"')
-}
-
+// ptrEncoder encoder for point
 type ptrEncoder struct {
 	elemEnc encoderFunc
 }
@@ -408,6 +400,7 @@ func (p *Parser) newPtrEncoder(t reflect.Type) encoderFunc {
 	return enc.encode
 }
 
+// condAddrEncoder encoder for condition
 type condAddrEncoder struct {
 	canAddrEnc, elseEnc encoderFunc
 }
@@ -469,6 +462,7 @@ func typeByIndex(t reflect.Type, index []int) reflect.Type {
 	return t
 }
 
+// reflectWithString reflect to string
 type reflectWithString struct {
 	v reflect.Value
 	s string
@@ -603,10 +597,13 @@ func fillField(f field) field {
 // byIndex sorts field by index sequence.
 type byIndex []field
 
+// Len length
 func (x byIndex) Len() int { return len(x) }
 
+// Swap swap element
 func (x byIndex) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
 
+// Less is i less j
 func (x byIndex) Less(i, j int) bool {
 	for k, xik := range x[i].index {
 		if k >= len(x[j].index) {
@@ -628,7 +625,7 @@ func typeFields(t reflect.Type, p Parser) []field {
 	next := []field{{typ: t}}
 
 	// Count of queued names for current level and the next.
-	count := map[reflect.Type]int{}
+	var count map[reflect.Type]int
 	nextCount := map[reflect.Type]int{}
 
 	// Types already visited at an earlier level.
@@ -648,85 +645,7 @@ func typeFields(t reflect.Type, p Parser) []field {
 			visited[f.typ] = true
 
 			// Scan f.typ for fields to include.
-			for i := 0; i < f.typ.NumField(); i++ {
-				sf := f.typ.Field(i)
-				isUnexported := sf.PkgPath != ""
-				if sf.Anonymous {
-					t := sf.Type
-					if t.Kind() == reflect.Ptr {
-						t = t.Elem()
-					}
-					if isUnexported && t.Kind() != reflect.Struct {
-						// Ignore embedded fields of unexported non-struct types.
-						continue
-					}
-					// Do not ignore embedded fields of unexported struct types
-					// since they may have exported fields.
-				} else if isUnexported {
-					// Ignore unexported non-embedded fields.
-					continue
-				}
-				tag := sf.Tag.Get(p.Tag)
-				if tag == "-" {
-					continue
-				}
-				name, opts := parseTag(tag)
-				if !isValidTag(name) {
-					name = ""
-				}
-				index := make([]int, len(f.index)+1)
-				copy(index, f.index)
-				index[len(f.index)] = i
-
-				ft := sf.Type
-				if ft.Name() == "" && ft.Kind() == reflect.Ptr {
-					// Follow pointer.
-					ft = ft.Elem()
-				}
-
-				// Only strings, floats, integers, and booleans can be quoted.
-				quoted := false
-				//if opts.Contains("string") {
-				//	switch ft.Kind() {
-				//	case reflect.Bool,
-				//		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-				//		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
-				//		reflect.Float32, reflect.Float64,
-				//		reflect.String:
-				//		quoted = true
-				//	}
-				//}
-
-				// Record found field and index sequence.
-				if name != "" || !sf.Anonymous || ft.Kind() != reflect.Struct {
-					tagged := name != ""
-					if name == "" {
-						name = sf.Name
-					}
-					fields = append(fields, fillField(field{
-						name:      name,
-						tag:       tagged,
-						index:     index,
-						typ:       ft,
-						omitEmpty: opts.Contains("omitempty"),
-						quoted:    quoted,
-					}))
-					if count[f.typ] > 1 {
-						// If there were multiple instances, add a second,
-						// so that the annihilation code will see a duplicate.
-						// It only cares about the distinction between 1 or 2,
-						// so don't bother generating any more copies.
-						fields = append(fields, fields[len(fields)-1])
-					}
-					continue
-				}
-
-				// Record new anonymous struct to explore in next round.
-				nextCount[ft]++
-				if nextCount[ft] == 1 {
-					next = append(next, fillField(field{name: ft.Name(), index: index, typ: ft}))
-				}
-			}
+			fields = loopFields(f, p, fields, count, nextCount, next)
 		}
 	}
 
@@ -747,6 +666,101 @@ func typeFields(t reflect.Type, p Parser) []field {
 		return byIndex(x).Less(i, j)
 	})
 
+	out := sortFields(fields)
+
+	fields = out
+	if !p.Sort {
+		sort.Sort(byIndex(fields))
+	}
+
+	return fields
+}
+
+func loopFields(f field, p Parser, fields []field, count map[reflect.Type]int,
+	nextCount map[reflect.Type]int, next []field) []field {
+	for i := 0; i < f.typ.NumField(); i++ {
+		sf := f.typ.Field(i)
+		isUnexported := sf.PkgPath != ""
+		if sf.Anonymous {
+			t := sf.Type
+			if t.Kind() == reflect.Ptr {
+				t = t.Elem()
+			}
+			if isUnexported && t.Kind() != reflect.Struct {
+				// Ignore embedded fields of unexported non-struct types.
+				continue
+			}
+			// Do not ignore embedded fields of unexported struct types
+			// since they may have exported fields.
+		} else if isUnexported {
+			// Ignore unexported non-embedded fields.
+			continue
+		}
+		tag := sf.Tag.Get(p.Tag)
+		if tag == "-" {
+			continue
+		}
+		name, opts := parseTag(tag)
+		if !isValidTag(name) {
+			name = ""
+		}
+		index := make([]int, len(f.index)+1)
+		copy(index, f.index)
+		index[len(f.index)] = i
+
+		ft := sf.Type
+		if ft.Name() == "" && ft.Kind() == reflect.Ptr {
+			// Follow pointer.
+			ft = ft.Elem()
+		}
+
+		// Only strings, floats, integers, and booleans can be quoted.
+		quoted := false
+		//if opts.Contains("string") {
+		//	switch ft.Kind() {
+		//	case reflect.Bool,
+		//		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		//		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		//		reflect.Float32, reflect.Float64,
+		//		reflect.String:
+		//		quoted = true
+		//	}
+		//}
+
+		// Record found field and index sequence.
+		if name != "" || !sf.Anonymous || ft.Kind() != reflect.Struct {
+			tagged := name != ""
+			if name == "" {
+				name = sf.Name
+			}
+			fields = append(fields, fillField(field{
+				name:      name,
+				tag:       tagged,
+				index:     index,
+				typ:       ft,
+				omitEmpty: opts.Contains("omitempty"),
+				quoted:    quoted,
+			}))
+			if count[f.typ] > 1 {
+				// If there were multiple instances, add a second,
+				// so that the annihilation code will see a duplicate.
+				// It only cares about the distinction between 1 or 2,
+				// so don't bother generating any more copies.
+				fields = append(fields, fields[len(fields)-1])
+			}
+			continue
+		}
+
+		// Record new anonymous struct to explore in next round.
+		nextCount[ft]++
+		if nextCount[ft] == 1 {
+			next = append(next, fillField(field{name: ft.Name(), index: index, typ: ft}))
+		}
+	}
+	return fields
+}
+
+func sortFields(fields []field) []field {
 	// Delete all fields that are hidden by the Go rules for embedded fields,
 	// except that fields with JSON tags are promoted.
 
@@ -774,13 +788,7 @@ func typeFields(t reflect.Type, p Parser) []field {
 			out = append(out, dominant)
 		}
 	}
-
-	fields = out
-	if !p.Sort {
-		sort.Sort(byIndex(fields))
-	}
-
-	return fields
+	return out
 }
 
 // dominantField looks through the fields, all of which are known to
@@ -824,12 +832,10 @@ func dominantField(fields []field) (field, bool) {
 // cachedTypeFields is like typeFields but uses a cache to avoid repeated work.
 func cachedTypeFields(t reflect.Type, p *Parser) []field {
 	if p.fieldCache == nil {
-		fmt.Printf("init field cache... Parser: %v \n", &p)
 		p.fieldCache = &fieldCache{}
 	}
 	m, _ := p.fieldCache.value.Load().(map[reflect.Type][]field)
 	f := m[t]
-	fmt.Println("fieldCache: ", f)
 	if f != nil {
 		return f
 	}
@@ -850,6 +856,5 @@ func cachedTypeFields(t reflect.Type, p *Parser) []field {
 	newM[t] = f
 	p.fieldCache.value.Store(newM)
 	p.fieldCache.mu.Unlock()
-	fmt.Println("stored: ", newM)
 	return f
 }
