@@ -15,6 +15,13 @@ go utils
             <br />
             <sub><b>Blademainer</b></sub>
         </a>
+    </td>
+    <td align="center">
+        <a href="https://github.com/posener">
+            <img src="https://avatars0.githubusercontent.com/u/919294?v=4" width="100;" alt="posener"/>
+            <br />
+            <sub><b>Eyal Posener</b></sub>
+        </a>
     </td></tr>
 </table>
 <!-- readme: contributors -end --> 
