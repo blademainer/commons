@@ -2,7 +2,7 @@ package field
 
 import (
 	"fmt"
-	"github.com/coreos/etcd/pkg/testutil"
+	"gopkg.in/go-playground/assert.v1"
 	"strings"
 	"testing"
 )
@@ -11,14 +11,14 @@ import (
 type Person struct {
 	Name   string `form:"name"`
 	Age    uint8  `form:"age"`
-	Gender int `form:"gender"`
+	Gender int    `form:"gender"`
 }
 
 // TestUnmarshal test
 func TestUnmarshal(t *testing.T) {
 	parser := &Parser{Tag: "form", Escape: false, GroupDelimiter: '&', PairDelimiter: '='}
 	parser.Tag = "form"
-	person := &Person{Name: "zhangsan", Age:18}
+	person := &Person{Name: "zhangsan", Age: 18}
 	params := make(map[string][]string)
 	data := parser.Unmarshal(person, params)
 	fmt.Println(data)
@@ -46,6 +46,7 @@ func TestMarshal(t *testing.T) {
 		t.Fail()
 	}
 }
+
 // TestMarshal test
 func TestMarshalStr(t *testing.T) {
 	parser := &Parser{Tag: "form", Quoted: true, Escape: false, GroupDelimiter: '&', PairDelimiter: '='}
@@ -74,7 +75,7 @@ func TestIgnoreEmptyValue(t *testing.T) {
 	person := &Person{Age: 18}
 	if b, e := parser.Marshal(person); e == nil {
 		s := string(b)
-		testutil.AssertTrue(t, !strings.Contains(s, "name"))
+		assert.Equal(t, strings.Index(s, "name") < 0, true)
 	} else {
 		t.Fail()
 	}
@@ -82,7 +83,7 @@ func TestIgnoreEmptyValue(t *testing.T) {
 	person.Name = ""
 	if b, e := parser.Marshal(person); e == nil {
 		s := string(b)
-		testutil.AssertTrue(t, !strings.Contains(s, "name"), "name mustn't exists!")
+		assert.Equal(t, strings.Index(s, "name") < 0, true)
 	} else {
 		t.Fail()
 	}
@@ -91,7 +92,7 @@ func TestIgnoreEmptyValue(t *testing.T) {
 	if b, e := parser.Marshal(person); e == nil {
 		s := string(b)
 		fmt.Println(s)
-		testutil.AssertTrue(t, strings.Contains(s, "name"), "name must exists!")
+		assert.Equal(t, strings.Index(s, "name") >= 0, true)
 	} else {
 		t.Fail()
 	}
@@ -104,7 +105,7 @@ func TestSort(t *testing.T) {
 	if b, e := parser.Marshal(person); e == nil {
 		s := string(b)
 		fmt.Println(s)
-		testutil.AssertTrue(t, strings.Index(s, "name") > strings.Index(s, "age"), "age must before name!")
+		assert.Equal(t, strings.Index(s, "name") > strings.Index(s, "age"), true)
 	} else {
 		t.Fail()
 	}

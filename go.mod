@@ -1,7 +1,6 @@
 module github.com/blademainer/commons
 
 require (
-	github.com/coreos/etcd v3.3.15+incompatible
 	github.com/eclipse/paho.mqtt.golang v1.2.0
 	github.com/fatih/structs v1.1.0
 	github.com/go-playground/locales v0.12.1 // indirect
@@ -30,4 +29,4 @@ require (
 
 )
 
-go 1.13
+go 1.14
