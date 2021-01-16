@@ -17,6 +17,18 @@ func ReplaceGatewayOrderId(urlPattern string, gatewayOrderId string) string {
 	}
 }
 
+// ReplacePlaceholders replace placeholder from kv
+func ReplacePlaceholders(urlPattern string, kv map[string]string) (string, error){
+	var err error
+	for k, v := range kv {
+		urlPattern, err = ReplacePlaceholder(urlPattern, k, v)
+		if err != nil {
+			return "", err
+		}
+	}
+	return urlPattern, nil
+}
+
 func ReplacePlaceholder(urlPattern string, placeHolderName string, parameter string) (string, error) {
 	if compile, e := GetPlaceholderRegex(placeHolderName); e != nil {
 		logger.Errorf("Regex error: %v", e.Error())
