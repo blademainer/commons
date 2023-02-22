@@ -15,10 +15,8 @@ require (
 	github.com/magiconair/properties v1.8.0
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/sirupsen/logrus v1.5.0
-	github.com/stretchr/objx v0.1.1 // indirect
 	github.com/stretchr/testify v1.4.0
-	golang.org/x/text v0.3.2
-	golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135
+	golang.org/x/text v0.3.8
 	google.golang.org/genproto v0.0.0-20190911173649-1774047e7e51 // indirect
 	google.golang.org/grpc v1.24.0
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
